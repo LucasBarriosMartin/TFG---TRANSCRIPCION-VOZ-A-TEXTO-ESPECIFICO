@@ -16,6 +16,13 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
 
+/* TODO:
+    - Hacer funcionar el botón de guardar
+    - Hacer que haya un TaklBack para el braille
+    - Pasar de texto a braille
+    - Hacer la configuración
+ */
+
 class MainActivity : AppCompatActivity() {
 
     // Variables globales
