@@ -28,6 +28,16 @@
             android:lineSpacingExtra="8dp"
             android:text=""
             android:textSize="24sp" />
+
+        <TextView
+            android:id="@+id/textViewBraille"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="30sp"
+            android:textColor="#555555"
+            android:paddingTop="10dp"
+            android:importantForAccessibility="no" />
     </ScrollView>
 
     <LinearLayout
