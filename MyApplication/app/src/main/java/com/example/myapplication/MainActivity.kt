@@ -26,6 +26,7 @@ import java.io.OutputStream
     - No se escribe mientras se está hablando, hasta que no escuche todo no para
     - El talk-back lo lee en voz alta y se vuelve a transcribir
     - ¿Poner en la pantalla los simbolos braille para la hora de la presentacion?
+    - Creo que si te instalas la aplicacion al priincipio no te escucha hasta que paras y reanudas.
  */
 
 class MainActivity : AppCompatActivity() {
