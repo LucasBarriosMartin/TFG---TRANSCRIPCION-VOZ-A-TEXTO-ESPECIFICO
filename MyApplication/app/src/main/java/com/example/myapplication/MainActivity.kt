@@ -21,6 +21,11 @@ import java.io.OutputStream
 /* TODO:
     - Pasar de texto a braille
     - Hacer la configuración
+
+    Dudas:
+    - No se escribe mientras se está hablando, hasta que no escuche todo no para
+    - El talk-back lo lee en voz alta y se vuelve a transcribir
+    - ¿Poner en la pantalla los simbolos braille para la hora de la presentacion?
  */
 
 class MainActivity : AppCompatActivity() {
@@ -35,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     // Reconocimiento de voz
     private var speechRecognizer: SpeechRecognizer? = null
     private var speechIntent: Intent? = null
+    private var textoAcumulado = "" // Guarda lo que se está escuchando
 
     // Flag de escuhca
     private var isListening = true
@@ -165,7 +171,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onResults(results: Bundle?) {
-                // Extraer el texto final
+                // Mostrar el texto definitivo
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
                     val texto = matches[0].replaceFirstChar { it.uppercase() } // Para que la primera letra se ponga mayuscula
@@ -176,7 +182,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPartialResults(partialResults: Bundle?) {
-                // TODO: Poner el texto provicional en un tono más claro que no es el definitivo
+                // Muestra el texto provicional en la pantalla
+                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    textViewTranscript.text = textoAcumulado + matches[0]
+
+                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                }
             }
 
             override fun onEvent(eventType: Int, params: Bundle?) {}
