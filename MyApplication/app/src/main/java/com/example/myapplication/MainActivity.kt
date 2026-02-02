@@ -16,17 +16,16 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
 import androidx.activity.result.contract.ActivityResultContracts
-import java.io.OutputStream
 
 /* TODO:
-    - Pasar de texto a braille
+    - Pasar de texto a braille (comprobar)
     - Hacer la configuración
 
     Dudas:
-    - No se escribe mientras se está hablando, hasta que no escuche todo no para
-    - El talk-back lo lee en voz alta y se vuelve a transcribir
-    - ¿Poner en la pantalla los simbolos braille para la hora de la presentacion?
-    - Creo que si te instalas la aplicacion al priincipio no te escucha hasta que paras y reanudas.
+    - El talk-back lo lee en voz alta y se vuelve a transcribir (problema)
+    - ¿Poner en la pantalla los simbolos braille? (para la presentación)
+    - Cuando ya no cabe el texto en la pantalla, ¿tiene que scrolear la pantalla a medida que se escribe el texto o no?
+    - ¿Lo que se esté visualizando en la linea braille tiene que coincidir con la de la aplicacion?
  */
 
 class MainActivity : AppCompatActivity() {
@@ -66,8 +65,17 @@ class MainActivity : AppCompatActivity() {
         btnLimpiar = findViewById(R.id.btnLimpiar)
         btnGuardar = findViewById(R.id.btnGuardar)
 
+        // Vemos si venimos de un giro de pantalla
+        if (savedInstanceState != null) {
+            textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", "")
+            isListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", true)
+
+            // Ponemos el texto antiguo
+            textViewTranscript.text = textoAcumulado
+        }
+
         // Boton de PARAR/REANUDAR
-        btnPararReanudar.text = "PARAR" // Como arranca escuchando, el botón debe permitir PARAR.
+        btnPararReanudar.text = if (isListening) "PARAR" else "REANUDAR"
         btnPararReanudar.setOnClickListener { toggleListening() }
 
         // Boton de LIMPIAR
@@ -86,10 +94,47 @@ class MainActivity : AppCompatActivity() {
         // Permisos y Arranque Automático
         checkAudioPermission()
 
-        // Si ya tenemos permiso, arrancamos inmediatamente
+        // Si tenemos permiso, arrancamos si estamos en escucha
+        // TODO: si no tiene permisos, ¿Los volvemos a pedir?
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startRecognition()
+            if (isListening) {
+                startRecognition()
+            } else {
+                btnPararReanudar.text = "REANUDAR"
+            }
         }
+    }
+
+    // Funcion que se activa cuando se piden los permisos de escucha (para que empiece a escuchar directamente)
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 1) { // Peticion de audio
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) { // si nos dan los permisos
+                startRecognition()
+            }
+            else { // si no nos dan los permisos, mostramos el mensaje de error correspondiente
+                Toast.makeText(
+                    this,
+                    "Se necesita permiso de micro para funcionar",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    // Si se van a borrar los datos al girar la pantalla nos guardamos lo actual
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("TEXTO_GUARDADO", textoAcumulado) // Guardamos el texto
+        outState.putBoolean("ESTABA_ESCUCHANDO", isListening) // Guardamos si estamos escuchando o no
+    }
+
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Liberar el micrófono para que se pueda volver a usar.
+        speechRecognizer?.destroy()
     }
 
     // Funcion para escuchar o dejar de escuchar
@@ -176,19 +221,35 @@ class MainActivity : AppCompatActivity() {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
                     val texto = matches[0].replaceFirstChar { it.uppercase() } // Para que la primera letra se ponga mayuscula
-                    addTextToScreen(texto + ". ") // Añadir texto en la pantalla
+                    val textoFinal = texto + ". ";
+
+                    textoAcumulado += textoFinal;
+
+                    textViewTranscript.text = textoAcumulado // Machacamos texto
+
+                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+
+                    // Envía el texto a la linea braille
+                    // TODO: comprobar funcionamiento de esta linea
+                    textViewTranscript.announceForAccessibility(textoFinal)
                 }
                 // Si seguimos en modo escucha, reiniciamos el ciclo
                 if (isListening) startRecognition()
             }
 
-            override fun onPartialResults(partialResults: Bundle?) {
-                // Muestra el texto provicional en la pantalla
+            override fun onPartialResults(partialResults: Bundle?) { // va mostrando la frase no definitiva
                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!matches.isNullOrEmpty()) {
-                    textViewTranscript.text = textoAcumulado + matches[0]
 
-                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    // Mostramos lo guardado + lo nuevo
+                    val textoNuevo = matches[0].replaceFirstChar { it.uppercase() }
+                    textViewTranscript.text = textoAcumulado + textoNuevo
+
+                    // Scroll solo cuando no cabe en la pantalla
+                    val scrollY = textViewTranscript.layout?.getLineTop(textViewTranscript.lineCount) ?: 0
+                    if (scrollY > scrollView.height) {
+                        scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    }
                 }
             }
 
