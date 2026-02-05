@@ -1,0 +1,6 @@
+- Hemos definido que IA de transcripción va a ser usada en nuestra aplicación. Buscabamos una IA gratis y la definitiva es VOSK, ya que Whisper.cpp 
+es mucho más complejo, consume más batería (lo que calienta más el móvil) y tiene un mayor retardo a pesar de su increible presición.
+- Como la aplicación ya funciona, pero con SpeechRecognizer de Android funciona rarete, vamos a crear una rama nueva para integrar la nueva IA VOSK.
+
+Tutorial para integrar la IA:
+- Nos la descargamos y la metimos en la carpeta: 
