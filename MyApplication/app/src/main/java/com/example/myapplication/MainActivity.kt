@@ -67,8 +67,8 @@ class MainActivity : AppCompatActivity() {
 
         // Vemos si venimos de un giro de pantalla
         if (savedInstanceState != null) {
-            textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", "")
-            isListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", true)
+            textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", textoAcumulado)
+            isListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
 
             // Ponemos el texto antiguo
             textViewTranscript.text = textoAcumulado
@@ -227,7 +227,11 @@ class MainActivity : AppCompatActivity() {
 
                     textViewTranscript.text = textoAcumulado // Machacamos texto
 
-                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    val view = scrollView.getChildAt(0)
+                    val diff = (view.bottom - (scrollView.height + scrollView.scrollY))
+                    if (diff <= 50) { // Si estamos abajo hacemos scroll
+                        scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    }
 
                     // Envía el texto a la linea braille
                     // TODO: comprobar funcionamiento de esta linea
@@ -245,9 +249,9 @@ class MainActivity : AppCompatActivity() {
                     val textoNuevo = matches[0].replaceFirstChar { it.uppercase() }
                     textViewTranscript.text = textoAcumulado + textoNuevo
 
-                    // Scroll solo cuando no cabe en la pantalla
-                    val scrollY = textViewTranscript.layout?.getLineTop(textViewTranscript.lineCount) ?: 0
-                    if (scrollY > scrollView.height) {
+                    val view = scrollView.getChildAt(0)
+                    val diff = (view.bottom - (scrollView.height + scrollView.scrollY))
+                    if (diff <= 50) { // Si estamos abajo hacemos scroll
                         scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
                     }
                 }
