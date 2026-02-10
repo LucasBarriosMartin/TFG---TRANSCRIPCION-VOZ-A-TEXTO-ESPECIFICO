@@ -27,7 +27,7 @@ import java.io.IOException
     - Hacer la configuración
 
     Dudas:
-    - El talk-back lo lee en voz alta y se vuelve a transcribir (problema?)
+    - El talk-back lo lee en voz alta y se vuelve a transcribir (problema?) hola
     - ¿Lo que se esté visualizando en la linea braille tiene que coincidir con la de la aplicacion?
  */
 
