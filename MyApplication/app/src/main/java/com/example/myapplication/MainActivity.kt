@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+
     override fun onDestroy() {
         super.onDestroy()
         // Liberar el micrófono para que se pueda volver a usar.
