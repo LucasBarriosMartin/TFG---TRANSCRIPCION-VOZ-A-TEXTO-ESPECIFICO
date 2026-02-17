@@ -20,6 +20,9 @@ import org.vosk.android.SpeechService
 import org.vosk.android.StorageService
 import org.json.JSONObject
 import java.io.IOException
+import java.io.File
+import java.io.FileOutputStream
+
 
 /* TODO:
     - Que al girar la pantalla no se pete
@@ -112,53 +115,29 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     // Funcion que carga la IA vosk
     private fun initVosk() {
-        // 1. Deshabilitamos el botón preventivamente
         btnPararReanudar.isEnabled = false
         btnPararReanudar.text = "CARGANDO..."
 
-        try {
-            // 2. Usamos "model" como nombre de carpeta para forzar una nueva ruta
-            StorageService.unpack(this, "vosk-model-es", "model",
-                { model: Model ->
-                    // Verificamos que la actividad siga viva
-                    if (isFinishing || isDestroyed) {
-                        model.close()
-                        return@unpack
-                    }
+        Thread {
+            try {
+                val modelPath = copyModelFromAssets("vosk-model-es")
+                model = Model(modelPath)
 
-                    this.model = model
+                runOnUiThread {
                     isModelLoaded = true
-
-                    runOnUiThread {
-                        if (isFinishing || isDestroyed) return@runOnUiThread
-
-                        btnPararReanudar.isEnabled = true
-
-                        // Priorizamos el estado previo: si debía estar escuchando, arrancamos
-                        if (wasListening || isListening) {
-                            startRecognition()
-                        } else {
-                            btnPararReanudar.text = "REANUDAR"
-                            Toast.makeText(this, "Vosk listo para usar", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                { exception: IOException ->
-                    // Manejo de errores de lectura/escritura de archivos
-                    runOnUiThread {
-                        if (!isFinishing && !isDestroyed) {
-                            btnPararReanudar.text = "ERROR"
-                            Toast.makeText(this, "Error de archivos: ${exception.message}", Toast.LENGTH_LONG).show()
-                        }
-                    }
+                    btnPararReanudar.isEnabled = true
+                    btnPararReanudar.text = "REANUDAR"
+                    Toast.makeText(this, "Vosk listo", Toast.LENGTH_SHORT).show()
                 }
-            )
-        } catch (e: Exception) {
-            // Este catch captura errores fatales directos de la librería (como el del Logcat)
-            Toast.makeText(this, "Fallo crítico al inicializar: ${e.message}", Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-        }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "Error cargando modelo: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
+
 
     // -- CONTROL DEL MICROFONO --
 
@@ -342,5 +321,46 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
+
+    private fun copyModelFromAssets(modelName: String): String {
+        val assetManager = assets
+        val outDir = File(filesDir, modelName)
+
+        if (outDir.exists()) {
+            return outDir.absolutePath
+        }
+
+        outDir.mkdirs()
+        copyAssetFolder(assetManager, modelName, outDir.absolutePath)
+
+        return outDir.absolutePath
+    }
+
+    private fun copyAssetFolder(assetManager: android.content.res.AssetManager, fromAssetPath: String, toPath: String) {
+        val files = assetManager.list(fromAssetPath) ?: return
+
+        File(toPath).mkdirs()
+
+        for (file in files) {
+            val fullPath = "$fromAssetPath/$file"
+            val subFiles = assetManager.list(fullPath)
+
+            if (subFiles.isNullOrEmpty()) {
+                copyAsset(assetManager, fullPath, "$toPath/$file")
+            } else {
+                copyAssetFolder(assetManager, fullPath, "$toPath/$file")
+            }
+        }
+    }
+
+    private fun copyAsset(assetManager: android.content.res.AssetManager, fromAssetPath: String, toPath: String) {
+        assetManager.open(fromAssetPath).use { input ->
+            FileOutputStream(toPath).use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
+
 
 }
