@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     // Flag de escuhca
     private var isListening = false
+    private var wasListening = false
     private var isModelLoaded = false
 
     // Variable de guardado: gestiona la respuesta de donde quiere guardar
@@ -74,7 +75,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         // Vemos si venimos de un giro de pantalla
         if (savedInstanceState != null) {
             textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", textoAcumulado)
-            isListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
+            isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
+            wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
 
             // Ponemos el texto antiguo
             textViewTranscript.text = textoAcumulado
@@ -110,30 +112,52 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     // Funcion que carga la IA vosk
     private fun initVosk() {
-        StorageService.unpack(this, "vosk-model-es", "vosk",
-            { model: Model ->
-                this.model = model
-                isModelLoaded = true
+        // 1. Deshabilitamos el botón preventivamente
+        btnPararReanudar.isEnabled = false
+        btnPararReanudar.text = "CARGANDO..."
 
-                runOnUiThread {
-                    btnPararReanudar.isEnabled = true
-
-                    // Si ya estabamos escuchando, seguimos escuchando y si no, no
-                    if (isListening) {
-                        startRecognition()
+        try {
+            // 2. Usamos "model" como nombre de carpeta para forzar una nueva ruta
+            StorageService.unpack(this, "vosk-model-es", "model",
+                { model: Model ->
+                    // Verificamos que la actividad siga viva
+                    if (isFinishing || isDestroyed) {
+                        model.close()
+                        return@unpack
                     }
-                    else {
-                        btnPararReanudar.text = "REANUDAR"
-                        Toast.makeText(this, "Vosk Lista", Toast.LENGTH_SHORT).show()
+
+                    this.model = model
+                    isModelLoaded = true
+
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+
+                        btnPararReanudar.isEnabled = true
+
+                        // Priorizamos el estado previo: si debía estar escuchando, arrancamos
+                        if (wasListening || isListening) {
+                            startRecognition()
+                        } else {
+                            btnPararReanudar.text = "REANUDAR"
+                            Toast.makeText(this, "Vosk listo para usar", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                { exception: IOException ->
+                    // Manejo de errores de lectura/escritura de archivos
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed) {
+                            btnPararReanudar.text = "ERROR"
+                            Toast.makeText(this, "Error de archivos: ${exception.message}", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
-            },
-            { exception: IOException ->
-                runOnUiThread {
-                    Toast.makeText(this, "Error: " + exception.message, Toast.LENGTH_LONG).show()
-                }
-            }
-        )
+            )
+        } catch (e: Exception) {
+            // Este catch captura errores fatales directos de la librería (como el del Logcat)
+            Toast.makeText(this, "Fallo crítico al inicializar: ${e.message}", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
+        }
     }
 
     // -- CONTROL DEL MICROFONO --
@@ -231,7 +255,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString("TEXTO_GUARDADO", textoAcumulado) // Guardamos el texto
-        outState.putBoolean("ESTABA_ESCUCHANDO", isListening) // Guardamos si estamos escuchando o no
+        outState.putBoolean("ESTA_ESCUCHANDO", isListening) // Guardamos si estamos escuchando o no
     }
 
     // -- AUXILIARES --
@@ -272,6 +296,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     // Funcion para cuando se minimice o bloquee el movil
     override fun onPause() {
         super.onPause()
+        wasListening = isListening
+
         if (isListening) {
             stopRecognition()
         }
@@ -280,23 +306,26 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     // Funcion para cuando se cierra completamente la app
     override fun onDestroy() {
         super.onDestroy()
-        // Liberar el micrófono para que se pueda volver a usar.
-        if (speechService != null) {
-            speechService?.stop()
-            speechService?.shutdown()
-            speechService = null
-        }
-        if (model != null) {
-            model?.close()
-            model = null
-        }
+
+        try {
+            // Liberar el micrófono para que se pueda volver a usar.
+            if (speechService != null) {
+                speechService?.stop()
+                speechService?.shutdown()
+                speechService = null
+            }
+            if (model != null) {
+                model?.close()
+                model = null
+            }
+        }catch (e: Exception){ }
     }
 
     // Funcion para cuando se vuelva a abrir estando minimizada
     override fun onResume() {
         super.onResume()
 
-        if (isModelLoaded && isListening) {
+        if (isModelLoaded && wasListening) {
             startRecognition()
         }
     }
