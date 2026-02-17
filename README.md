@@ -1,2 +1,4 @@
 # TFG---TRANSCRIPCION-VOZ-A-TEXTO-ESPECIFICO
-GitHub para el TFG
+
+- Cuando minimizamos la aplicación siempre vuelve parado independientemente de su estado anterior
+- Cuando se cierra la aplicacion por completo se rompe
