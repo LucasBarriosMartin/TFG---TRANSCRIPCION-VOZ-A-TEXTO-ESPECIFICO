@@ -1,0 +1,14 @@
+Diferenciar las voces de los que hablan:
+La propuesta es brillante y responde a una necesidad real en el entorno de la sordoceguera. Sin embargo, a nivel técnico, 
+lo que se propone requiere dos tecnologías: Speaker Diarization (separación de canales) y Voice Biometrics (identificación biométrica offline).
+Actualmente, procesar ambas redes neuronales en tiempo real, de manera local (sin internet, para proteger la privacidad) y en un dispositivo 
+móvil genérico, requiere un nivel de procesamiento y una arquitectura de software que excede los límites y el tiempo de este TFG.
+
+Sería una propuesta excelente para una Fase 2 del proyecto.
+
+- Speaker Diarization (Separar voces) o "Mutear" al propio usuario: 
+Requiere que pases el audio por dos redes neuronales distintas a la vez (la que transcribe el texto y la que analiza las ondas de voz). 
+En un móvil Android, hacerlo en tiempo real y sin internet se come la batería, la memoria RAM.
+- Speaker Identification / Voice Biometrics (Ponerles nombre):
+¿Implementar un sistema de biometría de voz local desde cero en Android? Incrementaría el nivel de un TFG estándar
+
