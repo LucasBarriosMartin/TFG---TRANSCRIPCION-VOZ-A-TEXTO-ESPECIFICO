@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private var textoAcumulado = "" // Guarda lo que se está escuchando
 
     // Flag de escuhca
-    private var isListening = false
+    private var isListening = true
     private var wasListening = false
     private var isModelLoaded = false
 
@@ -75,8 +75,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         btnLimpiar = findViewById(R.id.btnLimpiar)
         btnGuardar = findViewById(R.id.btnGuardar)
 
-        // Vemos si venimos de un giro de pantalla
-        if (savedInstanceState != null) {
+
+        if (savedInstanceState != null) { // Vemos si venimos de un giro de pantalla o de minimizar la app
             textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", textoAcumulado)
             isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
             wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
@@ -107,10 +107,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
 
         // Permisos y Arranque Automático
+        // y cargamos VOSK si nos dan los permisos
         checkAudioPermission()
 
-        // Cargamos VOSK
-        initVosk();
     }
 
     // Funcion que carga la IA vosk
@@ -121,18 +120,32 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         Thread {
             try {
                 val modelPath = copyModelFromAssets("vosk-model-es")
-                model = Model(modelPath)
+                val modeloCargado = Model(modelPath)
 
                 runOnUiThread {
+                    // Si el usuario cerró la app mientras se copiaban los 50MB, abortamos para que no explote.
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+
+                    model = modeloCargado
                     isModelLoaded = true
                     btnPararReanudar.isEnabled = true
-                    btnPararReanudar.text = "REANUDAR"
-                    Toast.makeText(this, "Vosk listo", Toast.LENGTH_SHORT).show()
+
+                    // Si la app se acaba de instalar y nos dio permiso o si la minimizó y volvió, arrancamos solos.
+                    if (isListening || wasListening) {
+                        startRecognition()
+                        Toast.makeText(this, "Vosk listo y escuchando", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // Si no quería escuchar, lo dejamos pausado
+                        btnPararReanudar.text = "REANUDAR"
+                        Toast.makeText(this, "Vosk listo", Toast.LENGTH_SHORT).show()
+                    }
                 }
 
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this, "Error cargando modelo: ${e.message}", Toast.LENGTH_LONG).show()
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(this, "Error cargando modelo: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }.start()
@@ -255,6 +268,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }
+        else { // cargamos vosk si tenemos los permisos de microfono
+            initVosk()
+        }
     }
 
     // Funcion que se activa cuando se piden los permisos de escucha (para que empiece a escuchar directamente)
@@ -264,7 +280,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         if (requestCode == 1) { // Peticion de audio
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) { // si nos dan los permisos
                 isListening = true
-                if (isModelLoaded) startRecognition() // Si el modelo está activo
+                initVosk()
             }
             else { // Si no nos dan los permisos, avisamos
                 Toast.makeText(this, "Necesito el micrófono para transcribir", Toast.LENGTH_LONG).show()
