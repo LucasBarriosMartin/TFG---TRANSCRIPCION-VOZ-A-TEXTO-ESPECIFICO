@@ -5,8 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Button
-import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -17,28 +15,32 @@ import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.RecognitionListener
 import org.vosk.android.SpeechService
-import org.vosk.android.StorageService
 import org.json.JSONObject
-import java.io.IOException
 import java.io.File
 import java.io.FileOutputStream
 
 
 /* TODO:
-    - Que al girar la pantalla no se pete
-    - Pasar de texto a braille (comprobar)
+    - Pasar de texto a braille
+        - Cambiar el TextView por un RecyclerView (lista de todas las frases hasta el momento)
     - Hacer la configuración
 
     Dudas:
     - El talk-back lo lee en voz alta y se vuelve a transcribir (problema?) hola
     - ¿Lo que se esté visualizando en la linea braille tiene que coincidir con la de la aplicacion?
+    - ¿Ponemos los botones arriba del todo para que los sordociegos los vean nada más abrir la app?
  */
 
 class MainActivity : AppCompatActivity(), RecognitionListener {
 
     // Variables de vista
-    private lateinit var scrollView: ScrollView
-    private lateinit var textViewTranscript: TextView
+    // - SrollView
+    // private lateinit var scrollView: ScrollView
+    // private lateinit var textViewTranscript: TextView
+    private lateinit var recyclerView: androidx.recyclerview.widget.RecyclerView
+    private val listaFrases = ArrayList<String>()
+    private lateinit var adaptador: TranscripcionAdapter
+    // - Botones
     private lateinit var btnPararReanudar: Button
     private lateinit var btnLimpiar: Button
     private lateinit var btnGuardar: Button
@@ -54,6 +56,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private var isListening = true
     private var wasListening = false
     private var isModelLoaded = false
+    private var isPartialTyping = false // Para que no se creen multiples burbujas
 
     // Variable de guardado: gestiona la respuesta de donde quiere guardar
     // Este objeto gestiona la respuesta cuando el usuario elige dónde guardar el archivo
@@ -69,20 +72,26 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         setContentView(R.layout.activity_main)
 
         // Inicializar las vistas
-        scrollView = findViewById(R.id.scrollView)
-        textViewTranscript = findViewById(R.id.textViewTranscript)
+        recyclerView = findViewById(R.id.recyclerViewTranscripcion)
         btnPararReanudar = findViewById(R.id.btnPararReanudar)
         btnLimpiar = findViewById(R.id.btnLimpiar)
         btnGuardar = findViewById(R.id.btnGuardar)
 
+        // Configurar el RecyclerView
+        adaptador = TranscripcionAdapter(listaFrases)
+        recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        recyclerView.adapter = adaptador
+
 
         if (savedInstanceState != null) { // Vemos si venimos de un giro de pantalla o de minimizar la app
-            textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", textoAcumulado)
+            val frasesGuardadas = savedInstanceState.getStringArrayList("LISTAS_GUARDADAS")
+            if (frasesGuardadas != null) {
+                listaFrases.addAll(frasesGuardadas)
+                adaptador.notifyDataSetChanged() // Refrescar lista
+            }
+
             isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
             wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
-
-            // Ponemos el texto antiguo
-            textViewTranscript.text = textoAcumulado
         }
 
         // Boton de PARAR/REANUDAR
@@ -92,8 +101,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
         // Boton de LIMPIAR
         btnLimpiar.setOnClickListener {
-            textViewTranscript.text = ""
-            textoAcumulado = ""
+            listaFrases.clear()
+            adaptador.notifyDataSetChanged()
+            isPartialTyping = false
         }
 
         // Boton de GUARDAR
@@ -156,11 +166,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     // Funcion para escuchar o dejar de escuchar
     private fun toggleListening() {
-        if (isListening) {
-            // Si estábamos escuchando, le damos a PARAR
+        if (isListening) { // Si estábamos escuchando, le damos a PARAR
             stopRecognition()
-        } else {
-            // Si estábamos parados, le damos a REANUDAR
+        } else { // Si estábamos parados, le damos a REANUDAR
             startRecognition()
         }
     }
@@ -201,18 +209,22 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             if (texto.isNotEmpty()) {
                 val textoFinal = texto.replaceFirstChar { it.uppercase() } + ". "
 
-                val usuarioAbajo = isBottom() // Comprobamos si estamos abajo del todo
+                val usuarioAbajo = !recyclerView.canScrollVertically(1)
 
-                textoAcumulado += textoFinal
-                textViewTranscript.text = textoAcumulado // Machacamos texto
-
-                if (usuarioAbajo) { // Si estamos abajo, hacemos sroll, sino, no
-                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                if (isPartialTyping) { // Si estábamos escribiendo parcialmente, machacamos la última burbuja con el texto final
+                    listaFrases[listaFrases.size - 1] = textoFinal
+                    adaptador.notifyItemChanged(listaFrases.size - 1)
+                    isPartialTyping = false
+                }
+                else { // Si llega de golpe el texto transcrito, creamos burbuja nueva
+                    listaFrases.add(textoFinal)
+                    adaptador.notifyItemInserted(listaFrases.size - 1)
                 }
 
-                // Envía el texto a la linea braille
-                // TODO: comprobar funcionamiento de esta linea que esta obsoleta
-                textViewTranscript.announceForAccessibility(textoFinal)
+                // Hacemos scroll si estamos abajo del todo
+                if (usuarioAbajo) {
+                    recyclerView.smoothScrollToPosition(listaFrases.size - 1)
+                }
             }
         }
     }
@@ -224,30 +236,34 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
             if (textoParcial.isNotEmpty()) {
                 val textoBonito = textoParcial.replaceFirstChar { it.uppercase() }
-                val usuarioAbajo = isBottom() // Comprobamos si estamos abajo del todo
 
-                textViewTranscript.text = textoAcumulado + textoBonito
+                val usuarioAbajo = !recyclerView.canScrollVertically(1)
 
-                if (usuarioAbajo) { // Si estamos abajo del todo hacemos sroll, sino, no
-                    scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                if (!isPartialTyping) { // Es la primera palabra de la frase, creamos una burbuja nueva
+                    listaFrases.add(textoBonito)
+                    isPartialTyping = true
+                    adaptador.notifyItemInserted(listaFrases.size - 1)
+                }
+                else { // Ya existe la burbuja parcial, la actualizamoss
+                    listaFrases[listaFrases.size - 1] = textoBonito
+                    adaptador.notifyItemChanged(listaFrases.size - 1)
+                }
+
+                // Hacemos scroll si estamos abajo del todo
+                if (usuarioAbajo) {
+                    recyclerView.smoothScrollToPosition(listaFrases.size - 1)
                 }
             }
         }
-    }
-
-    private fun isBottom(): Boolean {
-        if (scrollView.childCount == 0) return true
-        val view = scrollView.getChildAt(0)
-        val diff = (view.bottom - (scrollView.height + scrollView.scrollY))
-        return diff <= 50 // TODO: poner 100?
     }
 
     // -- GUARDADO DE ESTADO
     // Si se van a borrar los datos al girar la pantalla nos guardamos lo actual
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putString("TEXTO_GUARDADO", textoAcumulado) // Guardamos el texto
-        outState.putBoolean("ESTA_ESCUCHANDO", isListening) // Guardamos si estamos escuchando o no
+        outState.putStringArrayList("LISTAS_GUARDADAS", listaFrases)
+        outState.putBoolean("ESTA_ESCUCHANDO", isListening)
+        outState.putBoolean("ESTABA_ESCUCHANDO", isListening)
     }
 
     // -- AUXILIARES --
@@ -329,7 +345,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private fun guardarTexto(uri: android.net.Uri) {
         try {
             contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val textoAGuardar = textViewTranscript.text.toString()
+                val textoAGuardar = listaFrases.joinToString(separator = "\n")
                 outputStream.write(textoAGuardar.toByteArray())
             }
             Toast.makeText(this, "Guardado correctamente", Toast.LENGTH_SHORT).show()
@@ -376,7 +392,5 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             }
         }
     }
-
-
 
 }
