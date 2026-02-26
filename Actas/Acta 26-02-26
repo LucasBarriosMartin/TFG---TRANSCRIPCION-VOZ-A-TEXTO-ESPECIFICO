@@ -1,0 +1,9 @@
+Debido a la reunión del día 25/02/2026, hemos llegado a la conclusión de realizar los siguientes cambios:
+
+Ya que el modelo STT VOSK no se adecua a nuestros requisitos porque no reconoce signos de puntuación y reconoce mejor la voz.
+
+Además, dispondremos de un servidor local para disminuir carga en el movil, el peso de la aplicación, etc.
+
+Entonces, vamos a cambiar VOSK por OpenAI Whisper, un modelo mucho más grande y preciso cuyo tamaño no nos importa ya que disponemos del servidor.
+Vamos a añadir un Speaker Recognition usando SepeechBrain para entrenar el modelo.
+Y por ultimo, hacer la transcripción de texto a braille.
