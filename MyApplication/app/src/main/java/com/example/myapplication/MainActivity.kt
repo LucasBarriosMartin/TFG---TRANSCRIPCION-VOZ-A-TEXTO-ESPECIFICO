@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         super.onSaveInstanceState(outState)
         outState.putStringArrayList("LISTAS_GUARDADAS", listaFrases)
         outState.putBoolean("ESTA_ESCUCHANDO", isListening)
-        outState.putBoolean("ESTABA_ESCUCHANDO", isListening)
+        outState.putBoolean("ESTABA_ESCUCHANDO", wasListening)
     }
 
     // -- AUXILIARES --
