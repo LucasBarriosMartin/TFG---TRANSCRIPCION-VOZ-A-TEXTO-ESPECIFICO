@@ -11,6 +11,6 @@ source entorno_tfg/bin/activate
 exit
 sudo poweroff
 o sudo shutdown
-- Hugging Face: biblioteca pública de IAs
+- Hugging Face: biblioteca pública de IAs (token: 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)
 Pyannote: corta el audio separando a los hablantes
-SpeechBrain: compara las voces en la base de datos y les pone nombre
+SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
