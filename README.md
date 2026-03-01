@@ -1,2 +1,16 @@
 # TFG---TRANSCRIPCION-VOZ-A-TEXTO-ESPECIFICO
-GitHub para el TFG
+
+- Hacer el panel de configuración
+- Que el texto se resuma
+
+SERVIDOR
+- Tailscale: para poder conectarnos al servidor con distintas ips
+- Abrir entorno virtual
+source entorno_tfg/bin/activate
+-   Apagar el servidor
+exit
+sudo poweroff
+o sudo shutdown
+- Hugging Face: biblioteca pública de IAs (token: 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)
+Pyannote: corta el audio separando a los hablantes
+SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
