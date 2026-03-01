@@ -4,59 +4,46 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.widget.Button
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.util.Locale
 import androidx.activity.result.contract.ActivityResultContracts
-// IA VOSK
-import org.vosk.Model
-import org.vosk.Recognizer
-import org.vosk.android.RecognitionListener
-import org.vosk.android.SpeechService
-import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
-
 
 /* TODO:
-    - Pasar de texto a braille
-        - Cambiar el TextView por un RecyclerView (lista de todas las frases hasta el momento)
+    - Pasar de texto a braille (comprobar)
     - Hacer la configuración
 
     Dudas:
-    - El talk-back lo lee en voz alta y se vuelve a transcribir (problema?) hola
+    - El talk-back lo lee en voz alta y se vuelve a transcribir (problema)
+    - ¿Poner en la pantalla los simbolos braille? (para la presentación)
+    - Cuando ya no cabe el texto en la pantalla, ¿tiene que scrolear la pantalla a medida que se escribe el texto o no?
     - ¿Lo que se esté visualizando en la linea braille tiene que coincidir con la de la aplicacion?
-    - ¿Ponemos los botones arriba del todo para que los sordociegos los vean nada más abrir la app?
  */
 
-class MainActivity : AppCompatActivity(), RecognitionListener {
+class MainActivity : AppCompatActivity() {
 
     // Variables de vista
-    // - SrollView
-    // private lateinit var scrollView: ScrollView
-    // private lateinit var textViewTranscript: TextView
-    private lateinit var recyclerView: androidx.recyclerview.widget.RecyclerView
-    private val listaFrases = ArrayList<String>()
-    private lateinit var adaptador: TranscripcionAdapter
-    // - Botones
+    private lateinit var scrollView: ScrollView
+    private lateinit var textViewTranscript: TextView
     private lateinit var btnPararReanudar: Button
     private lateinit var btnLimpiar: Button
     private lateinit var btnGuardar: Button
 
     // Reconocimiento de voz
-    // private var speechRecognizer: SpeechRecognizer? = null
-    // private var speechIntent: Intent? = null
-    private var model: Model? = null
-    private var speechService: SpeechService? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechIntent: Intent? = null
     private var textoAcumulado = "" // Guarda lo que se está escuchando
 
     // Flag de escuhca
     private var isListening = true
-    private var wasListening = false
-    private var isModelLoaded = false
-    private var isPartialTyping = false // Para que no se creen multiples burbujas
 
     // Variable de guardado: gestiona la respuesta de donde quiere guardar
     // Este objeto gestiona la respuesta cuando el usuario elige dónde guardar el archivo
@@ -72,39 +59,27 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         setContentView(R.layout.activity_main)
 
         // Inicializar las vistas
-        recyclerView = findViewById(R.id.recyclerViewTranscripcion)
+        scrollView = findViewById(R.id.scrollView)
+        textViewTranscript = findViewById(R.id.textViewTranscript)
         btnPararReanudar = findViewById(R.id.btnPararReanudar)
         btnLimpiar = findViewById(R.id.btnLimpiar)
         btnGuardar = findViewById(R.id.btnGuardar)
 
-        // Configurar el RecyclerView
-        adaptador = TranscripcionAdapter(listaFrases)
-        recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
-        recyclerView.adapter = adaptador
+        // Vemos si venimos de un giro de pantalla
+        if (savedInstanceState != null) {
+            textoAcumulado = savedInstanceState.getString("TEXTO_GUARDADO", textoAcumulado)
+            isListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
 
-
-        if (savedInstanceState != null) { // Vemos si venimos de un giro de pantalla o de minimizar la app
-            val frasesGuardadas = savedInstanceState.getStringArrayList("LISTAS_GUARDADAS")
-            if (frasesGuardadas != null) {
-                listaFrases.addAll(frasesGuardadas)
-                adaptador.notifyDataSetChanged() // Refrescar lista
-            }
-
-            isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
-            wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
+            // Ponemos el texto antiguo
+            textViewTranscript.text = textoAcumulado
         }
 
         // Boton de PARAR/REANUDAR
-        btnPararReanudar.text = "CARGANDO..."
-        btnPararReanudar.isEnabled = false
+        btnPararReanudar.text = if (isListening) "PARAR" else "REANUDAR"
         btnPararReanudar.setOnClickListener { toggleListening() }
 
         // Boton de LIMPIAR
-        btnLimpiar.setOnClickListener {
-            listaFrases.clear()
-            adaptador.notifyDataSetChanged()
-            isPartialTyping = false
-        }
+        btnLimpiar.setOnClickListener { textViewTranscript.text = "" }
 
         // Boton de GUARDAR
         btnGuardar.setOnClickListener {
@@ -117,175 +92,16 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
 
         // Permisos y Arranque Automático
-        // y cargamos VOSK si nos dan los permisos
         checkAudioPermission()
 
-    }
-
-    // Funcion que carga la IA vosk
-    private fun initVosk() {
-        btnPararReanudar.isEnabled = false
-        btnPararReanudar.text = "CARGANDO..."
-
-        Thread {
-            try {
-                val modelPath = copyModelFromAssets("vosk-model-es")
-                val modeloCargado = Model(modelPath)
-
-                runOnUiThread {
-                    // Si el usuario cerró la app mientras se copiaban los 50MB, abortamos para que no explote.
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-
-                    model = modeloCargado
-                    isModelLoaded = true
-                    btnPararReanudar.isEnabled = true
-
-                    // Si la app se acaba de instalar y nos dio permiso o si la minimizó y volvió, arrancamos solos.
-                    if (isListening || wasListening) {
-                        startRecognition()
-                        Toast.makeText(this, "Vosk listo y escuchando", Toast.LENGTH_SHORT).show()
-                    } else {
-                        // Si no quería escuchar, lo dejamos pausado
-                        btnPararReanudar.text = "REANUDAR"
-                        Toast.makeText(this, "Vosk listo", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-            } catch (e: Exception) {
-                runOnUiThread {
-                    if (!isFinishing && !isDestroyed) {
-                        Toast.makeText(this, "Error cargando modelo: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
+        // Si tenemos permiso, arrancamos si estamos en escucha
+        // TODO: si no tiene permisos, ¿Los volvemos a pedir?
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            if (isListening) {
+                startRecognition()
+            } else {
+                btnPararReanudar.text = "REANUDAR"
             }
-        }.start()
-    }
-
-
-    // -- CONTROL DEL MICROFONO --
-
-    // Funcion para escuchar o dejar de escuchar
-    private fun toggleListening() {
-        if (isListening) { // Si estábamos escuchando, le damos a PARAR
-            stopRecognition()
-        } else { // Si estábamos parados, le damos a REANUDAR
-            startRecognition()
-        }
-    }
-
-    // Funcion que gestiona la escucha
-    private fun startRecognition() {
-        if (!isModelLoaded || model == null) return // Si no existe, nos salimos
-        if (speechService != null) return // Si ya existe, no creamos otro
-
-        try {
-            val recognizer = Recognizer(model, 16000.0f)
-            speechService = SpeechService(recognizer, 16000.0f)
-            speechService?.startListening(this) // abre el microfono
-
-            isListening = true
-            btnPararReanudar.text = "PARAR"
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error al iniciar: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // Funcion para parar de escuchar
-    private fun stopRecognition() {
-        speechService?.stop()
-        speechService = null
-        isListening = false
-        btnPararReanudar.text = "REANUDAR"
-    }
-
-    // -- ESCUCHAR Y TRANSCRIBIR --
-
-    // Funcion que muestra el texto definitivo
-    override fun onResult(hypothesis: String?) {
-        if (hypothesis != null) {
-            val json = JSONObject(hypothesis)
-            val texto = json.optString("text")
-
-            if (texto.isNotEmpty()) {
-                val textoFinal = texto.replaceFirstChar { it.uppercase() } + ". "
-
-                val usuarioAbajo = !recyclerView.canScrollVertically(1)
-
-                if (isPartialTyping) { // Si estábamos escribiendo parcialmente, machacamos la última burbuja con el texto final
-                    listaFrases[listaFrases.size - 1] = textoFinal
-                    adaptador.notifyItemChanged(listaFrases.size - 1)
-                    isPartialTyping = false
-                }
-                else { // Si llega de golpe el texto transcrito, creamos burbuja nueva
-                    listaFrases.add(textoFinal)
-                    adaptador.notifyItemInserted(listaFrases.size - 1)
-                }
-
-                // Hacemos scroll si estamos abajo del todo
-                if (usuarioAbajo) {
-                    recyclerView.smoothScrollToPosition(listaFrases.size - 1)
-                }
-            }
-        }
-    }
-
-    override fun onPartialResult(hypothesis: String?) {
-        if (hypothesis != null) {
-            val json = JSONObject(hypothesis)
-            val textoParcial = json.optString("partial")
-
-            if (textoParcial.isNotEmpty()) {
-                val textoBonito = textoParcial.replaceFirstChar { it.uppercase() }
-
-                val usuarioAbajo = !recyclerView.canScrollVertically(1)
-
-                if (!isPartialTyping) { // Es la primera palabra de la frase, creamos una burbuja nueva
-                    listaFrases.add(textoBonito)
-                    isPartialTyping = true
-                    adaptador.notifyItemInserted(listaFrases.size - 1)
-                }
-                else { // Ya existe la burbuja parcial, la actualizamoss
-                    listaFrases[listaFrases.size - 1] = textoBonito
-                    adaptador.notifyItemChanged(listaFrases.size - 1)
-                }
-
-                // Hacemos scroll si estamos abajo del todo
-                if (usuarioAbajo) {
-                    recyclerView.smoothScrollToPosition(listaFrases.size - 1)
-                }
-            }
-        }
-    }
-
-    // -- GUARDADO DE ESTADO
-    // Si se van a borrar los datos al girar la pantalla nos guardamos lo actual
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putStringArrayList("LISTAS_GUARDADAS", listaFrases)
-        outState.putBoolean("ESTA_ESCUCHANDO", isListening)
-        outState.putBoolean("ESTABA_ESCUCHANDO", wasListening)
-    }
-
-    // -- AUXILIARES --
-
-    // Funciones del RecognitionListener
-    override fun onFinalResult(hypothesis: String?) {
-        onResult(hypothesis)
-    }
-
-    override fun onError(exception: java.lang.Exception?) {
-        Toast.makeText(this, "Error vosk: ${exception?.message}", Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onTimeout() {}
-
-    // Funcion para pedir los permisos de voz
-    private fun checkAudioPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
-        }
-        else { // cargamos vosk si tenemos los permisos de microfono
-            initVosk()
         }
     }
 
@@ -295,49 +111,167 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
         if (requestCode == 1) { // Peticion de audio
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) { // si nos dan los permisos
-                isListening = true
-                initVosk()
+                startRecognition()
             }
-            else { // Si no nos dan los permisos, avisamos
-                Toast.makeText(this, "Necesito el micrófono para transcribir", Toast.LENGTH_LONG).show()
+            else { // si no nos dan los permisos, mostramos el mensaje de error correspondiente
+                Toast.makeText(
+                    this,
+                    "Se necesita permiso de micro para funcionar",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
 
-    // Funcion para cuando se minimice o bloquee el movil
-    override fun onPause() {
-        super.onPause()
-        wasListening = isListening
-
-        if (isListening) {
-            stopRecognition()
-        }
+    // Si se van a borrar los datos al girar la pantalla nos guardamos lo actual
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("TEXTO_GUARDADO", textoAcumulado) // Guardamos el texto
+        outState.putBoolean("ESTABA_ESCUCHANDO", isListening) // Guardamos si estamos escuchando o no
     }
 
-    // Funcion para cuando se cierra completamente la app
+
     override fun onDestroy() {
         super.onDestroy()
-
-        try {
-            // Liberar el micrófono para que se pueda volver a usar.
-            if (speechService != null) {
-                speechService?.stop()
-                speechService?.shutdown()
-                speechService = null
-            }
-            if (model != null) {
-                model?.close()
-                model = null
-            }
-        }catch (e: Exception){ }
+        // Liberar el micrófono para que se pueda volver a usar.
+        speechRecognizer?.destroy()
     }
 
-    // Funcion para cuando se vuelva a abrir estando minimizada
-    override fun onResume() {
-        super.onResume()
-
-        if (isModelLoaded && wasListening) {
+    // Funcion para escuchar o dejar de escuchar
+    private fun toggleListening() {
+        if (isListening) {
+            // Si estábamos escuchando, le damos a PARAR
+            stopRecognition()
+        } else {
+            // Si estábamos parados, le damos a REANUDAR
             startRecognition()
+        }
+    }
+
+    // Funcion que gestiona la escucha
+    private fun startRecognition() {
+        isListening = true // Semáforo en VERDE
+        btnPararReanudar.text = "PARAR" // Visualmente indicamos que la próxima acción es parar
+
+        // Si no existe, lo creamos
+        if (speechRecognizer == null) {
+            initSpeechRecognizer()
+        }
+
+        // Intentamos escuchar
+        try {
+            speechRecognizer?.startListening(speechIntent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Funcion para parar de escuchar
+    private fun stopRecognition() {
+        isListening = false
+        btnPararReanudar.text = "REANUDAR"
+        speechRecognizer?.stopListening() // cancel() si queremos que pare lo que está procesando
+    }
+
+    // Funcion que configura el reconocedor de voz
+    private fun initSpeechRecognizer() {
+
+        // Si existía uno, destruirlo y crear uno nuevo
+        if (speechRecognizer != null) speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+
+        // Comprobamos si podemos reconocer por voz
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Tu móvil no soporta reconocimiento de voz", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Configuración de escucha
+        speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM) // conversación casual
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault()) // que use el idioma del movil
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true) // no espera a que haya un silencio para enviar los resultados
+        }
+
+        // Reaccion a los eventos
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+
+            override fun onReadyForSpeech(params: Bundle?) {} // preparado para escuchar
+            override fun onBeginningOfSpeech() {} // empezó a hablar
+            override fun onRmsChanged(rmsdB: Float) {} // cambio de volumen
+            override fun onBufferReceived(buffer: ByteArray?) {} // datos recibidos
+            override fun onEndOfSpeech() {} // silencio detectado
+
+            override fun onError(error: Int) {
+                // Si el error es "permisos" o "cliente", cancelamos para no bloquear
+                if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS || error == SpeechRecognizer.ERROR_CLIENT) {
+                    isListening = false
+                    btnPararReanudar.text = "REANUDAR"
+                    return
+                }
+
+                // Si debemos seguir escuchando, reintentamos despues de medio segundo
+                if (isListening) {
+                    textViewTranscript.postDelayed({ startRecognition() }, 500)
+                }
+            }
+
+            override fun onResults(results: Bundle?) {
+                // Mostrar el texto definitivo
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    val texto = matches[0].replaceFirstChar { it.uppercase() } // Para que la primera letra se ponga mayuscula
+                    val textoFinal = texto + ". ";
+
+                    textoAcumulado += textoFinal;
+
+                    textViewTranscript.text = textoAcumulado // Machacamos texto
+
+                    val view = scrollView.getChildAt(0)
+                    val diff = (view.bottom - (scrollView.height + scrollView.scrollY))
+                    if (diff <= 50) { // Si estamos abajo hacemos scroll
+                        scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    }
+
+                    // Envía el texto a la linea braille
+                    // TODO: comprobar funcionamiento de esta linea
+                    textViewTranscript.announceForAccessibility(textoFinal)
+                }
+                // Si seguimos en modo escucha, reiniciamos el ciclo
+                if (isListening) startRecognition()
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) { // va mostrando la frase no definitiva
+                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+
+                    // Mostramos lo guardado + lo nuevo
+                    val textoNuevo = matches[0].replaceFirstChar { it.uppercase() }
+                    textViewTranscript.text = textoAcumulado + textoNuevo
+
+                    val view = scrollView.getChildAt(0)
+                    val diff = (view.bottom - (scrollView.height + scrollView.scrollY))
+                    if (diff <= 50) { // Si estamos abajo hacemos scroll
+                        scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
+                    }
+                }
+            }
+
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    // Funcion que escribe sin mover la pantalla del usuario
+    private fun addTextToScreen(newText: String) {
+        val scrollY = scrollView.scrollY
+        textViewTranscript.append(newText) // Escribimos
+        scrollView.post { scrollView.scrollTo(0, scrollY) } // Movemos a la posicion anterior
+    }
+
+    // Funcion para pedir los permisos de voz
+    private fun checkAudioPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         }
     }
 
@@ -345,51 +279,12 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private fun guardarTexto(uri: android.net.Uri) {
         try {
             contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val textoAGuardar = listaFrases.joinToString(separator = "\n")
+                val textoAGuardar = textViewTranscript.text.toString()
                 outputStream.write(textoAGuardar.toByteArray())
             }
             Toast.makeText(this, "Guardado correctamente", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun copyModelFromAssets(modelName: String): String {
-        val assetManager = assets
-        val outDir = File(filesDir, modelName)
-
-        if (outDir.exists()) {
-            return outDir.absolutePath
-        }
-
-        outDir.mkdirs()
-        copyAssetFolder(assetManager, modelName, outDir.absolutePath)
-
-        return outDir.absolutePath
-    }
-
-    private fun copyAssetFolder(assetManager: android.content.res.AssetManager, fromAssetPath: String, toPath: String) {
-        val files = assetManager.list(fromAssetPath) ?: return
-
-        File(toPath).mkdirs()
-
-        for (file in files) {
-            val fullPath = "$fromAssetPath/$file"
-            val subFiles = assetManager.list(fullPath)
-
-            if (subFiles.isNullOrEmpty()) {
-                copyAsset(assetManager, fullPath, "$toPath/$file")
-            } else {
-                copyAssetFolder(assetManager, fullPath, "$toPath/$file")
-            }
-        }
-    }
-
-    private fun copyAsset(assetManager: android.content.res.AssetManager, fromAssetPath: String, toPath: String) {
-        assetManager.open(fromAssetPath).use { input ->
-            FileOutputStream(toPath).use { output ->
-                input.copyTo(output)
-            }
         }
     }
 

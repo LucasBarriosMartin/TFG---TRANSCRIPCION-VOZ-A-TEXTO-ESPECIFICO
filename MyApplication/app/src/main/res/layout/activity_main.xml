@@ -8,25 +8,28 @@
     android:padding="10dp"
     tools:context=".MainActivity">
 
-    <ImageButton
-        android:id="@+id/btnConfiguracion"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:src="@drawable/ic_configuracion"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Configuración"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewTranscripcion"
-        android:layout_width="match_parent"
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:padding="8dp"
-        android:scrollbars="vertical"
-        app:layout_constraintTop_toBottomOf="@+id/btnConfiguracion" app:layout_constraintBottom_toTopOf="@+id/buttonsContainer"
+        android:layout_marginBottom="10dp"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@+id/buttonsContainer"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/textViewTranscript"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:focusable="true"
+            android:importantForAccessibility="yes"
+            android:lineSpacingExtra="8dp"
+            android:text=""
+            android:textSize="24sp" />
+
+    </ScrollView>
 
     <LinearLayout
         android:id="@+id/buttonsContainer"
@@ -41,32 +44,27 @@
         <Button
             android:id="@+id/btnPararReanudar"
             android:layout_width="0dp"
-            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="PARAR"
-            android:maxLines="1"
-            android:layout_marginEnd="2dp" app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="10sp"
-            app:autoSizeMaxTextSize="18sp" />
+            android:maxLines="1" />
 
         <Button
             android:id="@+id/btnLimpiar"
             android:layout_width="0dp"
-            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="4dp"
             android:text="LIMPIAR"
-            android:maxLines="1"
-            android:layout_marginHorizontal="2dp" app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="10sp"
-            app:autoSizeMaxTextSize="18sp" />
+            android:maxLines="1" />
 
         <Button
             android:id="@+id/btnGuardar"
             android:layout_width="0dp"
-            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="GUARDAR"
-            android:maxLines="1"
-            android:layout_marginStart="2dp" app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="10sp"
-            app:autoSizeMaxTextSize="18sp" />
+            android:maxLines="1" />
 
     </LinearLayout>
 
