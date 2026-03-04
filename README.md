@@ -20,8 +20,7 @@ SpeechBrain: compara las voces en la base de datos y les pone nombre (pip instal
 TAREAS PENDIENTES (de mayor a menor importancia)
 - En el servidor:
   - Que pueda recibir audios de la aplicación y le devuelva el JSON correspondiente.
-  - Convertir el audio para que SpeechRecognition no falle (.m4a falla)
-  - Que el SpeechRecognition reconozca "Mi nombre es..." y lo guarde con ese nombre en los embeddings
+  - Que el SpeechRecognition reconozca "Mi configuración de nombre es..." y lo guarde con ese nombre en los embeddings
   - Que el texto se resuma
 - En la aplicación Android:
   - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no
