@@ -27,3 +27,5 @@ TAREAS PENDIENTES (de mayor a menor importancia)
   - Programar la comunicación con el servidor (envio del audio y recivo del JSON)
   - Crear el panel de configuración y que la app pueda funcionar en modo negro
   - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa
+ 
+  https://chatgpt.com/share/69a86761-fcb0-8004-87d8-ac4730414b8f
