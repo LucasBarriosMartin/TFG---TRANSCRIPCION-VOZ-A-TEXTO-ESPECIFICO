@@ -1,16 +1,30 @@
 # TFG---TRANSCRIPCION-VOZ-A-TEXTO-ESPECIFICO
 
-- Hacer el panel de configuración
-- Que el texto se resuma
-
 SERVIDOR
-- Tailscale: para poder conectarnos al servidor con distintas ips
-- Abrir entorno virtual
+- Tailscale (para poder conectarnos al servidor con distintas ips):
+tailscale status
+tailscale up
+tailscale login/logout
+- Abrir entorno virtual:
 source entorno_tfg/bin/activate
--   Apagar el servidor
+-   Apagar el servidor:
+Si estamos en el entorno:
 exit
 sudo poweroff
-o sudo shutdown
-- Hugging Face: biblioteca pública de IAs (token: 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)
+Si no estamos en el entorno:
+sudo shutdown
+
 Pyannote: corta el audio separando a los hablantes
 SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
+
+TAREAS PENDIENTES (de mayor a menor importancia)
+- En el servidor:
+  - Que pueda recibir audios de la aplicación y le devuelva el JSON correspondiente.
+  - Convertir el audio para que SpeechRecognition no falle (.m4a falla)
+  - Que el SpeechRecognition reconozca "Mi nombre es..." y lo guarde con ese nombre en los embeddings
+  - Que el texto se resuma
+- En la aplicación Android:
+  - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no
+  - Programar la comunicación con el servidor (envio del audio y recivo del JSON)
+  - Crear el panel de configuración y que la app pueda funcionar en modo negro
+  - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa
