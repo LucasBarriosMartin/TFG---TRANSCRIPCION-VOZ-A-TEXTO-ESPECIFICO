@@ -17,6 +17,11 @@ sudo shutdown
 Pyannote: corta el audio separando a los hablantes
 SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
 
+CORRECCIONES
+- Que se visualice bien cuando hay modo oscuro
+- Que no se bloquee la pantalla automaticamente mientras se esté usando la aplicación, pero no se esté tocando la pantalla.
+- Corregir bug scroll aurtomático
+
 TAREAS PENDIENTES (de mayor a menor importancia)
 - En el servidor:
   - Que pueda recibir audios de la aplicación y le devuelva el JSON correspondiente.
