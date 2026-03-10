@@ -6,8 +6,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class TranscripcionAdapter(private val frases: List<String>) :
-    RecyclerView.Adapter<TranscripcionAdapter.ViewHolder>() {
+class TranscriptionAdapter(private val frases: List<String>) :
+    RecyclerView.Adapter<TranscriptionAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvFrase: TextView = view.findViewById(R.id.tvFrase)

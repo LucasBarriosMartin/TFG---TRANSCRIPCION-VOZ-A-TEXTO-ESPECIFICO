@@ -9,29 +9,22 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
-import org.vosk.Model
-import org.vosk.Recognizer
-import org.vosk.android.RecognitionListener
-import org.vosk.android.SpeechService
-import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
 
-class MainActivity : AppCompatActivity(), RecognitionListener {
+class MainActivity : AppCompatActivity(), EngineListener {
 
     // 1. NUESTRA NUEVA CLASE DE VISTAS
-    private lateinit var vistaApp: Vistapp
+    private lateinit var vistaApp: AppView
 
     // 2. Variables de estado y datos
     private val listaFrases = ArrayList<String>()
-    private lateinit var adaptador: TranscripcionAdapter
+    private lateinit var adaptador: TranscriptionAdapter
 
-    private var model: Model? = null
-    private var speechService: SpeechService? = null
+    // 3. EL MOTOR INTELIGENTE — sustituye a las variables de Vosk que teníamos antes.
+    //    SmartEngine decide internamente si usar Vosk o Whisper según la conexión.
+    private lateinit var engine: RecognitionEngine
 
     private var isListening = true
     private var wasListening = false
-    private var isModelLoaded = false
     private var isPartialTyping = false
 
     private val createFileLauncher =
@@ -46,15 +39,22 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         setContentView(R.layout.activity_main)
 
         // Inicializamos el adaptador
-        adaptador = TranscripcionAdapter(listaFrases)
+        adaptador = TranscriptionAdapter(listaFrases)
 
-        // ¡MAGIA! Conectamos la Vista pasándole las funciones de lo que tiene que hacer
-        vistaApp = Vistapp(
+        // Conectamos la Vista pasándole las funciones de lo que tiene que hacer
+        vistaApp = AppView(
             actividad = this,
             adaptador = adaptador,
             onPararReanudarClick = { toggleListening() },
             onLimpiarClick = { limpiarLista() },
             onGuardarClick = { abrirGuardadoDocumento() }
+        )
+
+        // Cambia la IP por la de vuestro servidor Cacharrín
+        engine = SmartEngine(
+            this,
+            "http://192.168.1.100:8000",
+            onMotorCambiado = { nombre -> vistaApp.mostrarMotorActivo(nombre) }
         )
 
         // Restaurar estado si se giró la pantalla
@@ -64,14 +64,14 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 listaFrases.addAll(frasesGuardadas)
                 adaptador.notifyDataSetChanged()
             }
-            isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
+            isListening  = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
             wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
         }
 
         vistaApp.estadoCargando()
 
         if (checkAudioPermission()) {
-            initVosk()
+            initEngine()
         }
     }
 
@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         else
             startRecognition()
     }
+
     private fun limpiarLista() {
         listaFrases.clear()
         adaptador.notifyDataSetChanged()
@@ -98,109 +99,84 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         createFileLauncher.launch(intent)
     }
 
-    // --- LOGICA VOSK ---
+    // --- LÓGICA DEL MOTOR ---
 
-    private fun initVosk() {
+    private fun initEngine() {
         vistaApp.estadoCargando()
 
-        Thread {
-            try {
-                val modelPath = copyModelFromAssets("vosk-model-es")
-                val modeloCargado = Model(modelPath)
+        // SmartEngine lanza Vosk y Whisper en paralelo internamente.
+        // onReady() se llama en cuanto el primero esté listo.
+        engine.inicializar(
+            onReady = {
+                if (isFinishing || isDestroyed) return@inicializar
 
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
+                vistaApp.mostrarMotorActivo(engine.nombreMotorActivo())
 
-                    model = modeloCargado
-                    isModelLoaded = true
-
-                    if (isListening || wasListening) {
-                        startRecognition()
-                        Toast.makeText(this, "Vosk listo y escuchando", Toast.LENGTH_SHORT).show()
-                    } else {
-                        vistaApp.estadoListo(false) // Ponemos botón en REANUDAR
-                        Toast.makeText(this, "Vosk listo", Toast.LENGTH_SHORT).show()
-                    }
+                if (isListening || wasListening) {
+                    startRecognition()
+                    Toast.makeText(this, "Motor listo y escuchando", Toast.LENGTH_SHORT).show()
+                } else {
+                    vistaApp.estadoListo(false)
+                    Toast.makeText(this, "Motor listo", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    if (!isFinishing && !isDestroyed) {
-                        Toast.makeText(
-                            this,
-                            "Error cargando modelo: ${e.message}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
+            },
+            onError = { e ->
+                if (!isFinishing && !isDestroyed) {
+                    Toast.makeText(this, "Error cargando motor: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
-        }.start()
+        )
     }
 
-    // --- ESCUCHAR Y TRANSCRIBIR ---
+    // --- ESCUCHAR Y PARAR ---
 
     private fun startRecognition() {
-        if (!isModelLoaded || model == null) return
-        if (speechService != null) return
+        if (!engine.estaListo()) return
 
-        try {
-            val recognizer = Recognizer(model, 16000.0f)
-            speechService = SpeechService(recognizer, 16000.0f)
-            speechService?.startListening(this)
-
-            isListening = true
-            vistaApp.estadoListo(true) // Ponemos botón en PARAR
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error al iniciar: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+        // "this" implementa EngineListener, así que recibe los callbacks de ambos motores
+        engine.iniciarEscucha(this)
+        isListening = true
+        vistaApp.estadoListo(true) // Ponemos botón en PARAR
     }
 
     private fun stopRecognition() {
-        speechService?.stop()
-        speechService = null
+        engine.pararEscucha()
         isListening = false
         vistaApp.estadoListo(false) // Ponemos botón en REANUDAR
     }
 
-    override fun onResult(hypothesis: String?) {
-        if (hypothesis != null) {
-            val json = JSONObject(hypothesis)
-            val texto = json.optString("text")
+    // --- EngineListener — igual para Vosk y Whisper ---
 
-            if (texto.isNotEmpty()) {
-                val textoFinal = texto.replaceFirstChar { it.uppercase() } + ". "
+    override fun onResultadoParcial(texto: String) {
+        val textoBonito = texto.replaceFirstChar { it.uppercase() }
 
-                if (isPartialTyping) {
-                    listaFrases[listaFrases.size - 1] = textoFinal
-                    adaptador.notifyItemChanged(listaFrases.size - 1)
-                    isPartialTyping = false
-                } else {
-                    listaFrases.add(textoFinal)
-                    adaptador.notifyItemInserted(listaFrases.size - 1)
-                }
-                vistaApp.hacerScrollAbajo(listaFrases.size)
-            }
+        if (!isPartialTyping) {
+            listaFrases.add(textoBonito)
+            isPartialTyping = true
+            adaptador.notifyItemInserted(listaFrases.size - 1)
+        } else {
+            listaFrases[listaFrases.size - 1] = textoBonito
+            adaptador.notifyItemChanged(listaFrases.size - 1)
         }
+        vistaApp.hacerScrollAbajo(listaFrases.size)
     }
 
-    override fun onPartialResult(hypothesis: String?) {
-        if (hypothesis != null) {
-            val json = JSONObject(hypothesis)
-            val textoParcial = json.optString("partial")
+    override fun onResultadoFinal(texto: String) {
+        val textoFinal = texto.replaceFirstChar { it.uppercase() } + ". "
 
-            if (textoParcial.isNotEmpty()) {
-                val textoBonito = textoParcial.replaceFirstChar { it.uppercase() }
-
-                if (!isPartialTyping) {
-                    listaFrases.add(textoBonito)
-                    isPartialTyping = true
-                    adaptador.notifyItemInserted(listaFrases.size - 1)
-                } else {
-                    listaFrases[listaFrases.size - 1] = textoBonito
-                    adaptador.notifyItemChanged(listaFrases.size - 1)
-                }
-                vistaApp.hacerScrollAbajo(listaFrases.size)
-            }
+        if (isPartialTyping) {
+            listaFrases[listaFrases.size - 1] = textoFinal
+            adaptador.notifyItemChanged(listaFrases.size - 1)
+            isPartialTyping = false
+        } else {
+            listaFrases.add(textoFinal)
+            adaptador.notifyItemInserted(listaFrases.size - 1)
         }
+        vistaApp.hacerScrollAbajo(listaFrases.size)
+    }
+
+    override fun onError(excepcion: Exception) {
+        Toast.makeText(this, "Error: ${excepcion.message}", Toast.LENGTH_SHORT).show()
     }
 
     // --- AUXILIARES, PERMISOS Y CICLO DE VIDA ---
@@ -211,16 +187,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         outState.putBoolean("ESTA_ESCUCHANDO", isListening)
         outState.putBoolean("ESTABA_ESCUCHANDO", wasListening)
     }
-
-    override fun onFinalResult(hypothesis: String?) {
-        onResult(hypothesis)
-    }
-
-    override fun onError(exception: java.lang.Exception?) {
-        Toast.makeText(this, "Error vosk: ${exception?.message}", Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onTimeout() {}
 
     private fun checkAudioPermission(): Boolean {
         if (ContextCompat.checkSelfPermission(
@@ -243,7 +209,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         if (requestCode == 1) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 isListening = true
-                initVosk()
+                initEngine()
             } else {
                 Toast.makeText(this, "Necesito el micrófono para transcribir", Toast.LENGTH_LONG)
                     .show()
@@ -257,21 +223,15 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         if (isListening) stopRecognition()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            speechService?.stop()
-            speechService?.shutdown()
-            speechService = null
-            model?.close()
-            model = null
-        } catch (e: Exception) {
-        }
-    }
-
     override fun onResume() {
         super.onResume()
-        if (isModelLoaded && wasListening) startRecognition()
+        if (engine.estaListo() && wasListening) startRecognition()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        engine.liberar()
+        vistaApp.liberarPantallaEncendida()
     }
 
     private fun guardarTexto(uri: android.net.Uri) {
@@ -283,54 +243,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             Toast.makeText(this, "Guardado correctamente", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // Funciones de copiado de Assets omitidas por brevedad (se quedan igual que las tenías al final del archivo)
-    private fun copyModelFromAssets(modelName: String): String {
-        val assetManager = assets
-        val outDir = File(filesDir, modelName)
-
-        if (outDir.exists()) {
-            return outDir.absolutePath
-        }
-
-        outDir.mkdirs()
-        copyAssetFolder(assetManager, modelName, outDir.absolutePath)
-
-        return outDir.absolutePath
-    }
-
-    private fun copyAssetFolder(
-        assetManager: android.content.res.AssetManager,
-        fromAssetPath: String,
-        toPath: String
-    ) {
-        val files = assetManager.list(fromAssetPath) ?: return
-
-        File(toPath).mkdirs()
-
-        for (file in files) {
-            val fullPath = "$fromAssetPath/$file"
-            val subFiles = assetManager.list(fullPath)
-
-            if (subFiles.isNullOrEmpty()) {
-                copyAsset(assetManager, fullPath, "$toPath/$file")
-            } else {
-                copyAssetFolder(assetManager, fullPath, "$toPath/$file")
-            }
-        }
-    }
-
-    private fun copyAsset(
-        assetManager: android.content.res.AssetManager,
-        fromAssetPath: String,
-        toPath: String
-    ) {
-        assetManager.open(fromAssetPath).use { input ->
-            FileOutputStream(toPath).use { output ->
-                input.copyTo(output)
-            }
         }
     }
 }

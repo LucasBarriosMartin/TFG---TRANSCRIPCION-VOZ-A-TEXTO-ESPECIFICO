@@ -1,6 +1,7 @@
 package com.example.myapplication
 
 import android.widget.Button
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -8,9 +9,9 @@ import androidx.recyclerview.widget.RecyclerView
 /**
  * VISTA DE LA APP
  */
-class Vistapp (
+class AppView (
     private val actividad: AppCompatActivity,
-    private val adaptador: TranscripcionAdapter,
+    private val adaptador: TranscriptionAdapter,
     // Estas son las "ordenes" que la vista recibirá desde el MainActivity (Lambdas)
     private val onPararReanudarClick: () -> Unit,
     private val onLimpiarClick: () -> Unit,
@@ -22,15 +23,33 @@ class Vistapp (
     private val btnLimpiar: Button = actividad.findViewById(R.id.btnLimpiar)
     private val btnGuardar: Button = actividad.findViewById(R.id.btnGuardar)
 
+    private val tvMotorActivo: TextView = actividad.findViewById(R.id.tvMotorActivo)
+
+    // Variable que trackea continuamente si el usuario está al final
+    private var usuarioAlFinal = true
+
     init {
         configurarRecyclerView()
         configurarBotones()
+        actividad.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    fun mostrarMotorActivo(motor: String) {
+        tvMotorActivo.text = "🎙 $motor"
     }
 
     private fun configurarRecyclerView() {
         // Le decimos a la lista que se muestre de arriba a abajo
         recyclerView.layoutManager = LinearLayoutManager(actividad)
         recyclerView.adapter = adaptador
+
+        // OnScrollListener actualiza esa variable en tiempo real
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                usuarioAlFinal = !recyclerView.canScrollVertically(1)
+            }
+        })
+
     }
 
     private fun configurarBotones() {
@@ -38,6 +57,10 @@ class Vistapp (
         btnPararReanudar.setOnClickListener { onPararReanudarClick() }
         btnLimpiar.setOnClickListener { onLimpiarClick() }
         btnGuardar.setOnClickListener { onGuardarClick() }
+    }
+
+    fun liberarPantallaEncendida() {
+        actividad.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     // --- FUNCIONES PARA CAMBIAR LA UI DESDE EL MAIN ACTIVITY ---
@@ -56,9 +79,10 @@ class Vistapp (
 
     // Baja la pantalla automáticamente para que el usuario vea la última frase
     fun hacerScrollAbajo(tamLista: Int) {
-        val usuarioAbajo = !recyclerView.canScrollVertically(1)
-        if (usuarioAbajo && tamLista > 0) {
-            recyclerView.smoothScrollToPosition(tamLista - 1)
+        if (usuarioAlFinal && tamLista > 0) {
+            recyclerView.post {   // ← espera a que el item esté dibujado
+                recyclerView.scrollToPosition(tamLista - 1)
+            }
         }
     }
 }

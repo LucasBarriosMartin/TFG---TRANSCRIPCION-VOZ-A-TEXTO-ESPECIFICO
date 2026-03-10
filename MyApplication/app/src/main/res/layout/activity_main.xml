@@ -8,6 +8,14 @@
     android:padding="10dp"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/tvMotorActivo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cargando..."
+        android:textSize="12sp"
+        android:padding="8dp" />
+
     <ImageButton
         android:id="@+id/btnConfiguracion"
         android:layout_width="48dp"
