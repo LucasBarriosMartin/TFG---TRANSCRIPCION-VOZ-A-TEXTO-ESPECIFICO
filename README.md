@@ -18,9 +18,9 @@ Pyannote: corta el audio separando a los hablantes
 SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
 
 CORRECCIONES
-- Que se visualice bien cuando hay modo oscuro
-- Que no se bloquee la pantalla automaticamente mientras se esté usando la aplicación, pero no se esté tocando la pantalla.
-- Corregir bug scroll aurtomático
+- Que se visualice bien cuando hay modo oscuro ✅ Dia 10/03/2026
+- Que no se bloquee la pantalla automaticamente mientras se esté usando la aplicación, pero no se esté tocando la pantalla. ✅ Dia 10/03/2026
+- Corregir bug scroll aurtomático (correción que no ha funcionado)
 - Convertir la comunicación en HTTPS
 
 TAREAS PENDIENTES (de mayor a menor importancia)
@@ -29,7 +29,7 @@ TAREAS PENDIENTES (de mayor a menor importancia)
   - Que el SpeechRecognition reconozca "Mi configuración de nombre es..." y lo guarde con ese nombre en los embeddings
   - Que el texto se resuma
 - En la aplicación Android:
-  - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no
+  - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no ✅ Dia 10/03/2026
   - Programar la comunicación con el servidor (envio del audio y recivo del JSON)
   - Crear el panel de configuración y que la app pueda funcionar en modo negro
   - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa
