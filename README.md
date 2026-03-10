@@ -21,6 +21,7 @@ CORRECCIONES
 - Que se visualice bien cuando hay modo oscuro
 - Que no se bloquee la pantalla automaticamente mientras se esté usando la aplicación, pero no se esté tocando la pantalla.
 - Corregir bug scroll aurtomático
+- Convertir la comunicación en HTTPS
 
 TAREAS PENDIENTES (de mayor a menor importancia)
 - En el servidor:
