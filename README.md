@@ -1,5 +1,9 @@
 # TFG---TRANSCRIPCION-VOZ-A-TEXTO-ESPECIFICO
 
+
+MEMORIA
+https://www.overleaf.com/project/69b2e7ab71451d3023259c99
+
 SERVIDOR
 - Tailscale (para poder conectarnos al servidor con distintas ips):
 tailscale status
