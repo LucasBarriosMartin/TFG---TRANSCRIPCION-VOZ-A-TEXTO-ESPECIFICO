@@ -3,6 +3,10 @@
 
 MEMORIA
 https://www.overleaf.com/project/69b2e7ab71451d3023259c99
+- Por qué hay tantas páginas en blanco
+- Quién son los colaboradores
+- Qué es el Estado de la Cuestión
+- Para qué queremos los apéndices
 
 SERVIDOR
 - Tailscale (para poder conectarnos al servidor con distintas ips):
@@ -34,6 +38,7 @@ TAREAS PENDIENTES (de mayor a menor importancia)
   - Que el texto se resuma
 - En la aplicación Android:
   - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no ✅ Dia 10/03/2026
+  - No funciona bien el cambio de whisper a vosk
   - Programar la comunicación con el servidor (envio del audio y recivo del JSON)
   - Crear el panel de configuración y que la app pueda funcionar en modo negro
   - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa
