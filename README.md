@@ -16,11 +16,9 @@ tailscale login/logout
 - Abrir entorno virtual:
 source entorno_tfg/bin/activate
 -   Apagar el servidor:
-Si estamos en el entorno:
-exit
 sudo poweroff
-Si no estamos en el entorno:
-sudo shutdown
+Si estamos en el entorno hacer antes:
+exit
 
 Pyannote: corta el audio separando a los hablantes
 SpeechBrain: compara las voces en la base de datos y les pone nombre (pip install torch torchaudio speechbrain)
