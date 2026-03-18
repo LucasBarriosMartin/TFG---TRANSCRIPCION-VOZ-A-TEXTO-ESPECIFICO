@@ -46,6 +46,7 @@ TAREAS PENDIENTES (de mayor a menor importancia)
   - Crear la interfaz para que use una IA u otra dependiendo de si tiene conexión o no ✅ Dia 10/03/2026
   - Programar la comunicación con el servidor (envio del audio y recivo del JSON) ✅ Dia 17/03/2026
   - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa ✅ Dia 17/03/2026
-  - Crear el panel de configuración y que la app pueda funcionar en modo negro
+  - Crear el panel de configuración
+  - Hacer que la app pueda funcionar en modo negro ✅ Día 18/03/2026
  
   https://chatgpt.com/share/69a86761-fcb0-8004-87d8-ac4730414b8f
