@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
         // Cambia la IP por la de vuestro servidor Cacharrín
         engine = SmartEngine(
             this,
-            "http://192.168.1.100:8000",
+            "http://100.125.52.21:8000", // TODO: poner la ip correcta
             onMotorCambiado = { nombre -> vistaApp.mostrarMotorActivo(nombre) }
         )
 
