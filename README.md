@@ -1,11 +1,13 @@
 # TFG---TRANSCRIPCION-VOZ-A-TEXTO-ESPECIFICO
 
-
 MEMORIA
 https://www.overleaf.com/project/69b2e7ab71451d3023259c99
 Dudas:
 - Por qué hay tantas páginas en blanco
 - Quién son los colaboradores
+- Diferencia entre motivación y objetivos
+- La aplicación es una comparativa, ¿deberiamos comernos la cabeza para que la aplicación cambie dinámicamente? Entonces, ¿cómo cambiaría la motivación en ese caso?
+- ¿Se puede poner en la bibliografía el documento de Eugenio o referenciarlo de alguna manera?
 - Qué es el Estado de la Cuestión
 - Para qué queremos los apéndices
 
