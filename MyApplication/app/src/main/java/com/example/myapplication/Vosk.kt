@@ -10,13 +10,6 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * Implementación de RecognitionEngine que usa Vosk (modelo local, sin internet).
- * Encapsula toda la lógica de Vosk que antes estaba en MainActivity.
- *
- * Implementa también RecognitionListener (de Vosk) para traducir sus callbacks
- * al idioma de EngineListener.
- */
 class Vosk(private val context: Context) : RecognitionEngine, RecognitionListener {
 
     private var model: Model? = null
@@ -24,25 +17,21 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
     private var listener: EngineListener? = null
     private var listo = false
 
-    // ------------------------------------------------------------------ //
-    //  RecognitionEngine
-    // ------------------------------------------------------------------ //
-
     override fun inicializar(onReady: () -> Unit, onError: (Exception) -> Unit) {
         Thread {
             try {
+                // Solo cargamos el modelo de texto (Súper rápido y ligero)
                 val modelPath = copyModelFromAssets("vosk-model-es")
-                val modeloCargado = Model(modelPath)
+                val modeloTexto = Model(modelPath)
 
-                // Volvemos al hilo principal
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    model = modeloCargado
+                    model = modeloTexto
                     listo = true
                     onReady()
                 }
             } catch (e: Exception) {
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    onError(e)
+                    onError(Exception("Error cargando Vosk: ${e.message}"))
                 }
             }
         }.start()
@@ -79,12 +68,7 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
 
     override fun estaListo() = listo
 
-    // ------------------------------------------------------------------ //
-    //  RecognitionListener de Vosk → traducimos a EngineListener
-    //
-    //  Vosk habla su propio idioma (JSON con "partial" y "text").
-    //  Aquí lo traducimos al idioma común (EngineListener).
-    // ------------------------------------------------------------------ //
+    // --- PROCESAMIENTO DE RESULTADOS (Solo texto) ---
 
     override fun onPartialResult(hypothesis: String?) {
         hypothesis ?: return
@@ -99,20 +83,11 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
     }
 
     override fun onFinalResult(hypothesis: String?) = onResult(hypothesis)
-
-    override fun onError(e: java.lang.Exception?) {
-        e?.let { listener?.onError(it) }
-    }
-
+    override fun onError(e: java.lang.Exception?) { e?.let { listener?.onError(it) } }
     override fun onTimeout() {}
+    override fun nombreMotorActivo(): String = "Vosk (Offline)"
 
-    override fun nombreMotorActivo(): String = "Vosk"
-
-    // ------------------------------------------------------------------ //
-    //  Copia del modelo desde Assets al almacenamiento interno
-    //  (sin cambios respecto al código original de MainActivity)
-    // ------------------------------------------------------------------ //
-
+    // --- COPIADO DE ARCHIVOS ---
     private fun copyModelFromAssets(modelName: String): String {
         val outDir = File(context.filesDir, modelName)
         if (outDir.exists()) return outDir.absolutePath

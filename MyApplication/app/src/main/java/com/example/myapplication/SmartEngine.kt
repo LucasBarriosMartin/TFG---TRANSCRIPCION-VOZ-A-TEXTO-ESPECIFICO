@@ -39,25 +39,26 @@ class SmartEngine(
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            if (escuchando && whisperListo) cambiarMotor()
+            if (escuchando && whisperListo) {
+                runOnMain { cambiarMotor() }  // ← AÑADIR runOnMain
+            }
         }
-
         override fun onLost(network: Network) {
-            if (escuchando && voskListo) cambiarMotor()
+            if (escuchando && voskListo) {
+                runOnMain { cambiarMotor() }  // ← AÑADIR runOnMain
+            }
         }
     }
 
     private fun cambiarMotor() {
-        val nuevoMotor = motorActivo
+        // Paramos ambos para asegurarnos de que ninguno queda activo
+        vosk.pararEscucha()
+        whisper.pararEscucha()
 
-        if (motorActual == nuevoMotor) return
+        // Arrancamos el que toca según el estado actual de la red
+        motorActivo.iniciarEscucha(listener ?: return)
 
-        motorActual?.pararEscucha()
-        motorActual = nuevoMotor
-
-        listener?.let { motorActual?.iniciarEscucha(it) }
-
-        val nombre = if (nuevoMotor == whisper) "Whisper" else "Vosk"
+        val nombre = if (hayConexion() && whisperListo) "Whisper" else "Vosk"
         onMotorCambiado(nombre)
     }
 
@@ -98,6 +99,10 @@ class SmartEngine(
             yaAvisado = true
             onReady()
         }
+    }
+
+    private fun runOnMain(block: () -> Unit) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post(block)
     }
 
     override fun iniciarEscucha(listener: EngineListener) {

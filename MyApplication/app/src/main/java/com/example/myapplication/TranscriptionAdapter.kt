@@ -6,6 +6,9 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
+/*
+Clase que gestiona el texto en burbujas
+ */
 class TranscriptionAdapter(private val frases: List<String>) :
     RecyclerView.Adapter<TranscriptionAdapter.ViewHolder>() {
 

@@ -15,13 +15,15 @@ class AppView (
     // Estas son las "ordenes" que la vista recibirá desde el MainActivity (Lambdas)
     private val onPararReanudarClick: () -> Unit,
     private val onLimpiarClick: () -> Unit,
-    private val onGuardarClick: () -> Unit
+    private val onGuardarClick: () -> Unit,
+    private val onConfiguracionClick: () -> Unit
 ) {
     // Enganchamos las vistas (findViewById)
     private val recyclerView: RecyclerView = actividad.findViewById(R.id.recyclerViewTranscripcion)
     private val btnPararReanudar: Button = actividad.findViewById(R.id.btnPararReanudar)
     private val btnLimpiar: Button = actividad.findViewById(R.id.btnLimpiar)
     private val btnGuardar: Button = actividad.findViewById(R.id.btnGuardar)
+    private val btnConfiguracion: Button = actividad.findViewById(R.id.btnConfiguracion)
 
     private val tvMotorActivo: TextView = actividad.findViewById(R.id.tvMotorActivo)
 
@@ -57,6 +59,7 @@ class AppView (
         btnPararReanudar.setOnClickListener { onPararReanudarClick() }
         btnLimpiar.setOnClickListener { onLimpiarClick() }
         btnGuardar.setOnClickListener { onGuardarClick() }
+        btnConfiguracion.setOnClickListener { onConfiguracionClick() }
     }
 
     fun liberarPantallaEncendida() {
