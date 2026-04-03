@@ -41,13 +41,25 @@ class MainActivity : AppCompatActivity(), EngineListener {
         // Inicializamos el adaptador
         adaptador = TranscriptionAdapter(listaFrases)
 
+        val prefs = getSharedPreferences("ConfigAccesibilidad", MODE_PRIVATE)
+
+        val tamanoLetra = prefs.getFloat("tamano_letra", 20f)
+        val colorFondo = prefs.getInt("color_fondo", android.graphics.Color.BLACK)
+        val colorTexto = prefs.getInt("color_texto", android.graphics.Color.WHITE)
+
+        adaptador.setTamanoLetra(tamanoLetra)
+        adaptador.setColorTexto(colorTexto)
+
+        window.decorView.setBackgroundColor(colorFondo)
+
         // Conectamos la Vista pasándole las funciones de lo que tiene que hacer
         vistaApp = AppView(
             actividad = this,
             adaptador = adaptador,
             onPararReanudarClick = { toggleListening() },
             onLimpiarClick = { limpiarLista() },
-            onGuardarClick = { abrirGuardadoDocumento() }
+            onGuardarClick = { abrirGuardadoDocumento() },
+            onConfiguracionClick = { abrirConfiguracion() }
         )
 
         // Cambia la IP por la de vuestro servidor Cacharrín
@@ -225,6 +237,18 @@ class MainActivity : AppCompatActivity(), EngineListener {
 
     override fun onResume() {
         super.onResume()
+
+        val prefs = getSharedPreferences("ConfigAccesibilidad", MODE_PRIVATE)
+
+        val tamanoLetra = prefs.getFloat("tamano_letra", 20f)
+        val colorFondo = prefs.getInt("color_fondo", android.graphics.Color.BLACK)
+        val colorTexto = prefs.getInt("color_texto", android.graphics.Color.WHITE)
+
+        adaptador.setTamanoLetra(tamanoLetra)
+        adaptador.setColorTexto(colorTexto)
+
+        window.decorView.setBackgroundColor(colorFondo)
+
         if (engine.estaListo() && wasListening) startRecognition()
     }
 
@@ -244,5 +268,10 @@ class MainActivity : AppCompatActivity(), EngineListener {
         } catch (e: Exception) {
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun abrirConfiguracion() {
+        val intent = Intent(this, SettingsActivity::class.java)
+        startActivity(intent)
     }
 }

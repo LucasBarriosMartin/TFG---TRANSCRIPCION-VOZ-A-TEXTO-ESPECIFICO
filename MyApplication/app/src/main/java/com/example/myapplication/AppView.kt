@@ -5,6 +5,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.widget.ImageButton
 
 /**
  * VISTA DE LA APP
@@ -23,7 +24,7 @@ class AppView (
     private val btnPararReanudar: Button = actividad.findViewById(R.id.btnPararReanudar)
     private val btnLimpiar: Button = actividad.findViewById(R.id.btnLimpiar)
     private val btnGuardar: Button = actividad.findViewById(R.id.btnGuardar)
-    private val btnConfiguracion: Button = actividad.findViewById(R.id.btnConfiguracion)
+    private val btnConfiguracion: ImageButton = actividad.findViewById(R.id.btnConfiguracion)
 
     private val tvMotorActivo: TextView = actividad.findViewById(R.id.tvMotorActivo)
 
