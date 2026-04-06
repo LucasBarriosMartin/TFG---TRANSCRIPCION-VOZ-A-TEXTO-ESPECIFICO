@@ -13,7 +13,7 @@ import threading
 import time
 
 ARCHIVO_DB = "bd.json"
-UMBRAL = 0.6
+UMBRAL = 0.2
 NUM_MAX_EMBEDDINGS = 30
 SAMPLE_RATE_OBJETIVO = 16000
 
@@ -66,14 +66,23 @@ def identificar_o_registrar(senial: torch.Tensor) -> str:
     global db_memoria
     embedding_nuevo = obtener_embedding(senial)
 
+    # Si la IA no pudo extraer una huella valida (array vacio o corrupto)
+    if embedding_nuevo is None or embedding_nuevo.size == 0 or np.isnan(embedding_nuevo).any():
+        print("Audio sin voz valida o embedding vacio. Descartando y enviando a 'Vacio'.")
+        return "Vacio"
+
     with _db_lock:
-        mejor_similitud = 0.0
+        mejor_similitud = -1.0 # Empezamos por debajo de 0
         mejor_persona = None
 
-        # ?? Buscar mejor match
+        # Buscar el mejor match
         similitudes_debug = {}
 
         for nombre, lista_embeddings in db_memoria.items():
+            # Evitamos leer categorías que se hayan quedado vacias en el JSON
+            if not lista_embeddings:
+                continue
+
             matriz = np.stack(lista_embeddings)
             sims = matriz @ embedding_nuevo
             sim_max = float(sims.max())
@@ -88,14 +97,14 @@ def identificar_o_registrar(senial: torch.Tensor) -> str:
                 mejor_similitud = sim_max
                 mejor_persona = nombre
         
-        # ?? PRINT BONITO
+        # PRINT BONITO PARA DEBUG
         print("\n--- SIMILITUDES ---")
         for nombre, datos in similitudes_debug.items():
             print(f"{nombre}: max={datos['max']} | embeddings={datos['todas']}")
         print("-------------------\n")
 
-        # ? CASO 1: reconocido
-        if mejor_similitud >= UMBRAL:
+        # Reconocido (supera el umbral)
+        if mejor_similitud >= UMBRAL and mejor_persona is not None:
             print(f"Reconocido: {mejor_persona} (sim={mejor_similitud:.3f})")
 
             # opcional: seguir refinando embeddings
@@ -109,26 +118,49 @@ def identificar_o_registrar(senial: torch.Tensor) -> str:
 
             return mejor_persona
 
-        # ? CASO 2: NO reconocido ? SIEMPRE "Desconocido"
+        # No reconocido -> Va al saco de "Desconocido"
         if "Desconocido" not in db_memoria:
             db_memoria["Desconocido"] = []
 
         db_memoria["Desconocido"].append(embedding_nuevo)
 
-        # limitar tamaño también aquí
+        # limitar tamanio
         if len(db_memoria["Desconocido"]) > NUM_MAX_EMBEDDINGS:
             db_memoria["Desconocido"] = db_memoria["Desconocido"][-NUM_MAX_EMBEDDINGS:]
 
         _guardar_db()
 
-        print(f"No reconocido ? guardado en Desconocido (sim={mejor_similitud:.3f})")
+        print(f"No reconocido -> guardado en Desconocido (sim={mejor_similitud:.3f})")
 
         return "Desconocido"
 
 def transcribir_desde_tensor(senial: torch.Tensor) -> str:
     audio_numpy = senial.squeeze().cpu().numpy()
-    resultado = modelo_whisper.transcribe(audio_numpy, language="es")
-    return resultado["text"]
+    
+    # condition_on_previous_text=False hace que no se invente tanto
+    resultado = modelo_whisper.transcribe(audio_numpy, language="es", condition_on_previous_text=False)
+    
+    # Extraemos los segmentos de la transcripción
+    segmentos = resultado.get("segments", [])
+    
+    if not segmentos:
+        return "[Ruido]"
+
+    # Revisamos si Whisper esta seguro de que NO hay voz
+    # Si la probabilidad es mayor al 60% (0.6), asumimos que es una alucinacion por ruido
+    for segmento in segmentos:
+        probabilidad_sin_voz = segmento.get("no_speech_prob", 0.0)
+        if probabilidad_sin_voz > 0.6:
+            print(f"Descartado por Whisper. Probabilidad de que sea solo ruido: {probabilidad_sin_voz:.2f}")
+            return "[Ruido]"
+            
+    texto = resultado["text"].strip()
+    
+    # Si el texto es muy corto (ej. "a", ".", " "), tambien lo descartamos
+    if len(texto) < 2:
+        return "[Ruido]"
+        
+    return texto
 
 @app.get("/api/ping")
 def ping():
