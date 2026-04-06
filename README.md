@@ -30,9 +30,9 @@ CORRECCIONES
 - Que se visualice bien cuando hay modo oscuro ✅ Dia 10/03/2026
 - Que no se bloquee la pantalla automaticamente mientras se esté usando la aplicación, pero no se esté tocando la pantalla. ✅ Dia 10/03/2026
 - Hay pérdidas de audio en el modelo de Whisper. ✅ Dia 17/03/2026
+- Que se cambie de vosk a whisper sin necesidad de cerrar la aplicación. ✅ Dia 06/04/2026
+- Cuando pulsamos el botón de parar deja de procesarse todo el audio anterior. ✅ Dia 06/04/2026
 - Corregir bug scroll automático (correción que no ha funcionado)
-- Que se cambie de vosk a whisper sin necesidad de cerrar la aplicación. 
-- Cuando pulsamos el botón de parar deja de procesarse todo el audio anterior.
 - Que si habla la misma persona no aparezca de nuevo su nombre.
 - Convertir la comunicación en HTTPS
 
