@@ -48,6 +48,8 @@ TAREAS PENDIENTES (de mayor a menor importancia)
   - Que la aplicación cambie automaticamente de Vosk a Whisper si detecta que se va el internet o viceversa ✅ Dia 17/03/2026
   - Crear el panel de configuración
   - Implementar el Speech-Recognition en el modo offline, es decir, que pueda reconocer las voces de quien esté hablando.
-  - Hacer que la app pueda funcionar en modo negro ✅ Día 18/03/2026
+  - Hacer que la app pueda funcionar en modo negro. ✅ Día 18/03/2026
+ - En los dos:
+   - Que se puedan subir mensajes de voz y la aplicación lo transcriba.
  
   https://chatgpt.com/share/69a86761-fcb0-8004-87d8-ac4730414b8f
