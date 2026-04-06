@@ -31,9 +31,9 @@ class Whisper(
     private val colaChunks = ArrayBlockingQueue<ByteArray>(10)
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     companion object {
@@ -79,15 +79,20 @@ class Whisper(
     }
 
     override fun pararEscucha() {
-        escuchando = false
+        escuchando = false // Detener la grabación
+
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
-        grabacionThread?.interrupt()
+
+        // Lo comento porque ya no matamos al proceso,
+        // dejamos que termine de enviar lo que queda pendiente
+        // grabacionThread?.interrupt()
+        // envioThread?.interrupt()
+        // envioThread = null
+        // colaChunks.clear()
+
         grabacionThread = null
-        envioThread?.interrupt()
-        envioThread = null
-        colaChunks.clear()
     }
 
     override fun liberar() {
@@ -146,12 +151,22 @@ class Whisper(
         envioThread = Thread {
             var chunkIndex = 0
 
-            while (escuchando && !Thread.currentThread().isInterrupted) {
-                // Espera hasta 1 segundo a que haya un chunk disponible
-                val pcm = colaChunks.poll(1, TimeUnit.SECONDS) ?: continue
-                val wavBytes = pcmAWav(pcm)
-                enviarChunk(wavBytes, "chunk_${chunkIndex++}.wav")
+            // ¡LA MAGIA!: Seguimos dando vueltas si 'escuchando' es true,
+            // O si la cola todavía tiene audios pendientes de enviar.
+            while ((escuchando || colaChunks.isNotEmpty()) && !Thread.currentThread().isInterrupted) {
+                try {
+                    val pcm = colaChunks.poll(1, TimeUnit.SECONDS) ?: continue
+                    val wavBytes = pcmAWav(pcm)
+                    enviarChunk(wavBytes, "chunk_${chunkIndex++}.wav")
+
+                } catch (e: InterruptedException) {
+                    android.util.Log.d("Whisper", "Hilo de envío interrumpido pacíficamente.")
+                    break
+                } catch (e: Exception) {
+                    android.util.Log.e("Whisper", "Hilo de envío detenido bruscamente: ${e.message}")
+                }
             }
+            android.util.Log.d("Whisper", "Cierre elegante completado. Cola vacía.")
         }.also { it.start() }
     }
 
@@ -194,17 +209,26 @@ class Whisper(
             val bodyString = response.body?.string()
 
             if (response.isSuccessful && bodyString != null) {
-                val json    = JSONObject(bodyString)
-                val speaker = json.optString("speaker")
-                val texto   = json.optString("text")
+                try {
+                    // Intentamos leer el JSON de forma segura
+                    val json    = JSONObject(bodyString)
+                    val speaker = json.optString("speaker")
+                    val texto   = json.optString("text")
 
-                if (texto.isNotEmpty()) {
-                    val textoFormateado = if (speaker.isNotEmpty()) "[$speaker]: $texto" else texto
-                    runOnMain { listener?.onResultadoFinal(textoFormateado) }
+                    if (texto.isNotEmpty()) {
+                        val textoFormateado = if (speaker.isNotEmpty()) "[$speaker]: $texto" else texto
+                        runOnMain { listener?.onResultadoFinal(textoFormateado) }
+                    }
+                } catch (e: Exception) {
+                    // Si el JSON viene roto, no cerramos la app, sacamos el error
+                    runOnMain { listener?.onError(Exception("Servidor devolvió datos raros: $bodyString")) }
                 }
+            } else {
+                // Si el servidor da un error 500, ahora nos avisará por pantalla en lugar de callarse
+                runOnMain { listener?.onError(Exception("Fallo en Cacharrín: Código ${response.code}")) }
             }
-        } catch (e: IOException) {
-            runOnMain { listener?.onError(Exception("Error enviando chunk: ${e.message}")) }
+        } catch (e: Exception) { // CAPTURAMOS CUALQUIER ERROR, NO SOLO IOException
+            runOnMain { listener?.onError(Exception("Error de red con Whisper: ${e.message}")) }
         }
     }
 
