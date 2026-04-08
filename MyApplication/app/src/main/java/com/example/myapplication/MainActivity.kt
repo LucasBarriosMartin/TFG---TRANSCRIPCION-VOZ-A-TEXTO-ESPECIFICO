@@ -9,6 +9,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Button
+import android.widget.ImageButton
+import android.view.View
 
 class MainActivity : AppCompatActivity(), EngineListener {
 
@@ -18,6 +21,12 @@ class MainActivity : AppCompatActivity(), EngineListener {
     // 2. Variables de estado y datos
     private val listaFrases = ArrayList<String>()
     private lateinit var adaptador: TranscriptionAdapter
+
+    private lateinit var btnParar: Button
+    private lateinit var btnLimpiar: Button
+    private lateinit var btnGuardar: Button
+
+    private lateinit var btnConfiguracion: ImageButton
 
     // 3. EL MOTOR INTELIGENTE — sustituye a las variables de Vosk que teníamos antes.
     //    SmartEngine decide internamente si usar Vosk o Whisper según la conexión.
@@ -38,21 +47,12 @@ class MainActivity : AppCompatActivity(), EngineListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Inicializamos el adaptador
+        btnParar = findViewById(R.id.btnPararReanudar)
+        btnLimpiar = findViewById(R.id.btnLimpiar)
+        btnGuardar = findViewById(R.id.btnGuardar)
+
         adaptador = TranscriptionAdapter(listaFrases)
 
-        val prefs = getSharedPreferences("ConfigAccesibilidad", MODE_PRIVATE)
-
-        val tamanoLetra = prefs.getFloat("tamano_letra", 20f)
-        val colorFondo = prefs.getInt("color_fondo", android.graphics.Color.BLACK)
-        val colorTexto = prefs.getInt("color_texto", android.graphics.Color.WHITE)
-
-        adaptador.setTamanoLetra(tamanoLetra)
-        adaptador.setColorTexto(colorTexto)
-
-        window.decorView.setBackgroundColor(colorFondo)
-
-        // Conectamos la Vista pasándole las funciones de lo que tiene que hacer
         vistaApp = AppView(
             actividad = this,
             adaptador = adaptador,
@@ -62,29 +62,36 @@ class MainActivity : AppCompatActivity(), EngineListener {
             onConfiguracionClick = { abrirConfiguracion() }
         )
 
-        // Cambia la IP por la de vuestro servidor Cacharrín
-        engine = SmartEngine(
-            this,
-            "http://100.125.52.21:8000", // TODO: poner la ip correcta
-            onMotorCambiado = { nombre -> vistaApp.mostrarMotorActivo(nombre) }
-        )
+        engine = SmartEngine(this, "http://100.125.52.21:8000") { nombre ->
+            vistaApp.mostrarMotorActivo(nombre)
+        }
 
-        // Restaurar estado si se giró la pantalla
         if (savedInstanceState != null) {
-            val frasesGuardadas = savedInstanceState.getStringArrayList("LISTAS_GUARDADAS")
-            if (frasesGuardadas != null) {
-                listaFrases.addAll(frasesGuardadas)
+            savedInstanceState.getStringArrayList("LISTAS_GUARDADAS")?.let {
+                listaFrases.addAll(it)
                 adaptador.notifyDataSetChanged()
             }
-            isListening  = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
+            isListening = savedInstanceState.getBoolean("ESTA_ESCUCHANDO", isListening)
             wasListening = savedInstanceState.getBoolean("ESTABA_ESCUCHANDO", isListening)
         }
 
         vistaApp.estadoCargando()
+        if (checkAudioPermission()) initEngine()
 
-        if (checkAudioPermission()) {
-            initEngine()
-        }
+        // --- Aplicar accesibilidad ---
+        val root = findViewById<android.view.View>(android.R.id.content)
+        root.setBackgroundColor(
+            AccessibilityManager.getBackgroundColor(this)
+        )
+        AccessibilityManager.applyAccessibility(this, root)
+
+        // Aplicar a adaptador
+        adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
+        adaptador.setColorTexto(AccessibilityManager.getTextColor(this))
+        adaptador.setColorFondo(AccessibilityManager.getBackgroundColor(this))
+        btnConfiguracion = findViewById(R.id.btnConfiguracion)
+        aplicarEstiloImageButton(btnConfiguracion)
+        aplicarColoresBotones()
     }
 
     // --- ACCIONES DE LOS BOTONES ---
@@ -238,16 +245,20 @@ class MainActivity : AppCompatActivity(), EngineListener {
     override fun onResume() {
         super.onResume()
 
-        val prefs = getSharedPreferences("ConfigAccesibilidad", MODE_PRIVATE)
+        val root = findViewById<android.view.View>(android.R.id.content)
+        root.setBackgroundColor(
+            AccessibilityManager.getBackgroundColor(this)
+        )
+        AccessibilityManager.applyAccessibility(this, root)
 
-        val tamanoLetra = prefs.getFloat("tamano_letra", 20f)
-        val colorFondo = prefs.getInt("color_fondo", android.graphics.Color.BLACK)
-        val colorTexto = prefs.getInt("color_texto", android.graphics.Color.WHITE)
+        adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
+        adaptador.setColorTexto(AccessibilityManager.getTextColor(this))
+        adaptador.setColorFondo(AccessibilityManager.getBackgroundColor(this))
 
-        adaptador.setTamanoLetra(tamanoLetra)
-        adaptador.setColorTexto(colorTexto)
+        aplicarColoresBotones()
+        aplicarEstiloImageButton(btnConfiguracion)
 
-        window.decorView.setBackgroundColor(colorFondo)
+        adaptador.notifyDataSetChanged()
 
         if (engine.estaListo() && wasListening) startRecognition()
     }
@@ -274,4 +285,51 @@ class MainActivity : AppCompatActivity(), EngineListener {
         val intent = Intent(this, SettingsActivity::class.java)
         startActivity(intent)
     }
+
+
+    private fun aplicarEstiloImageButton(boton: ImageButton) {
+        val colorIcono = AccessibilityManager.getTextColor(this)
+        boton.setColorFilter(colorIcono) // Aplica el color del icono según contraste
+
+        // Ajusta tamaño del icono si quieres escalar
+        val scale = when (AccessibilityManager.getTextSize(this)) {
+            "normal" -> 1.0f
+            "grande" -> 1.2f
+            "extra" -> 1.4f
+            else -> 1.0f
+        }
+        boton.scaleX = scale
+        boton.scaleY = scale
+    }
+
+    private fun aplicarEstiloBoton(boton: Button) {
+
+        val colorTexto = AccessibilityManager.getButtonTextColor(this)
+        val colorFondo = AccessibilityManager.getButtonBackgroundColor(this)
+
+        boton.setBackgroundColor(colorFondo)
+        boton.setTextColor(colorTexto)
+    }
+
+    private fun aplicarColoresBotones() {
+
+        val root = findViewById<View>(android.R.id.content)
+
+        val colorTexto = AccessibilityManager.getTextColor(this)
+        val colorFondo = AccessibilityManager.getBackgroundColor(this)
+
+        root.setBackgroundColor(colorFondo)
+
+        btnParar.setTextColor(colorTexto)
+        btnLimpiar.setTextColor(colorTexto)
+        btnGuardar.setTextColor(colorTexto)
+
+        aplicarEstiloBoton(btnParar)
+        aplicarEstiloBoton(btnLimpiar)
+        aplicarEstiloBoton(btnGuardar)
+
+        aplicarEstiloImageButton(btnConfiguracion)
+    }
+
+
 }

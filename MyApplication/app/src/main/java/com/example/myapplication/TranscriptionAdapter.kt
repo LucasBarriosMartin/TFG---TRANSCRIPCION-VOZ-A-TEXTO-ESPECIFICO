@@ -13,23 +13,21 @@ class TranscriptionAdapter(private val frases: List<String>) :
     private var colorTextoActual: Int = Color.WHITE
     private var tamanoLetraActual: Float = 20f
 
+    private var colorFondoActual: Int = Color.BLACK
+
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvFrase: TextView = view.findViewById(R.id.tvFrase)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_transcripcion, parent, false)
-
-        return ViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(
+        LayoutInflater.from(parent.context).inflate(R.layout.item_transcripcion, parent, false)
+    )
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val frase = frases[position]
-
-        holder.tvFrase.text = frase
+        holder.tvFrase.text = frases[position]
         holder.tvFrase.textSize = tamanoLetraActual
         holder.tvFrase.setTextColor(colorTextoActual)
+        holder.itemView.setBackgroundColor(colorFondoActual)
     }
 
     override fun getItemCount() = frases.size
@@ -43,4 +41,11 @@ class TranscriptionAdapter(private val frases: List<String>) :
         tamanoLetraActual = size
         notifyDataSetChanged()
     }
+
+    fun setColorFondo(color: Int) {
+        colorFondoActual = color
+        notifyDataSetChanged()
+    }
+
+
 }

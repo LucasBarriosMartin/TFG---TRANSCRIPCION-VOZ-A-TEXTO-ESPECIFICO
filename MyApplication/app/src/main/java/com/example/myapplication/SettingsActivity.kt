@@ -1,68 +1,167 @@
 package com.example.myapplication
 
-import android.content.Context
-import android.graphics.Color
 import android.os.Bundle
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.ImageButton
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.card.MaterialCardView
 
 class SettingsActivity : AppCompatActivity() {
+
+    private lateinit var btnBack: ImageButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        // Abrimos la memoria del móvil
-        val prefs = getSharedPreferences("ConfigAccesibilidad", Context.MODE_PRIVATE)
-        val editor = prefs.edit()
+        btnBack = findViewById(R.id.btnBack)
 
-        // --- LÓGICA DE TAMAÑO DE LETRA ---
+        // aplicar estilo accesible al botón
+        aplicarEstiloImageButton(btnBack)
 
-        // Al pulsar la 'A' pequeña
-        findViewById<TextView>(R.id.previewLetraNormal).setOnClickListener {
-            editor.putFloat("tamano_letra", 20f).apply()
-            Toast.makeText(this, "Tamaño Normal seleccionado", Toast.LENGTH_SHORT).show()
-        }
-        // Al pulsar la 'A' mediana
-        findViewById<TextView>(R.id.previewLetraGrande).setOnClickListener {
-            editor.putFloat("tamano_letra", 30f).apply()
-            Toast.makeText(this, "Tamaño Grande seleccionado", Toast.LENGTH_SHORT).show()
-        }
-        // Al pulsar la 'A' gigante
-        findViewById<TextView>(R.id.previewLetraGigante).setOnClickListener {
-            editor.putFloat("tamano_letra", 40f).apply()
-            Toast.makeText(this, "Tamaño Súper Grande seleccionado", Toast.LENGTH_SHORT).show()
-        }
-
-        // --- LÓGICA DE CONTRASTE Y FONDO ---
-        // Ahora guardamos el color de fondo y el color de texto por separado
-
-        // Opción 1: Fondo Negro, Letra Blanca
-        findViewById<TextView>(R.id.previewFondoNegroLetraBlanca).setOnClickListener {
-            editor.putInt("color_fondo", Color.BLACK).apply()
-            editor.putInt("color_texto", Color.WHITE).apply()
-            Toast.makeText(this, "Contraste Negro/Blanco seleccionado", Toast.LENGTH_SHORT).show()
-        }
-
-        // Opción 2: Fondo Blanco, Letra Negra
-        findViewById<TextView>(R.id.previewFondoBlancoLetraNegra).setOnClickListener {
-            editor.putInt("color_fondo", Color.WHITE).apply()
-            editor.putInt("color_texto", Color.BLACK).apply()
-            Toast.makeText(this, "Contraste Blanco/Negro seleccionado", Toast.LENGTH_SHORT).show()
-        }
-
-        // Opción 3: Fondo Negro, Letra Amarilla
-        findViewById<TextView>(R.id.previewFondoNegroLetraAmarilla).setOnClickListener {
-            editor.putInt("color_fondo", Color.BLACK).apply()
-            editor.putInt("color_texto", Color.YELLOW).apply()
-            Toast.makeText(this, "Contraste Negro/Amarillo seleccionado", Toast.LENGTH_SHORT).show()
-        }
-
-        // Botón Volver
-        findViewById<Button>(R.id.btnVolver).setOnClickListener {
+        btnBack.setOnClickListener {
             finish()
         }
+
+        // --- REFERENCIAS A LAS TARJETAS ---
+
+        val cardLetraNormal = findViewById<MaterialCardView>(R.id.cardLetraNormal)
+        val cardLetraGrande = findViewById<MaterialCardView>(R.id.cardLetraGrande)
+        val cardLetraGigante = findViewById<MaterialCardView>(R.id.cardLetraGigante)
+
+        val cardNegroBlanco = findViewById<MaterialCardView>(R.id.cardNegroBlanco)
+        val cardBlancoNegro = findViewById<MaterialCardView>(R.id.cardBlancoNegro)
+        val cardNegroAmarillo = findViewById<MaterialCardView>(R.id.cardNegroAmarillo)
+
+        val opcionesLetra = listOf(cardLetraNormal, cardLetraGrande, cardLetraGigante)
+        val opcionesContraste = listOf(cardNegroBlanco, cardBlancoNegro, cardNegroAmarillo)
+
+        // --- TAMAÑO DE LETRA ---
+
+        cardLetraNormal.setOnClickListener {
+
+            seleccionarCard(opcionesLetra, cardLetraNormal)
+
+            AccessibilityManager.saveTextSize(this, "normal")
+            aplicarAccesibilidadUI()
+
+        }
+
+        cardLetraGrande.setOnClickListener {
+
+            seleccionarCard(opcionesLetra, cardLetraGrande)
+
+            AccessibilityManager.saveTextSize(this, "grande")
+            aplicarAccesibilidadUI()
+
+        }
+
+        cardLetraGigante.setOnClickListener {
+
+            seleccionarCard(opcionesLetra, cardLetraGigante)
+
+            AccessibilityManager.saveTextSize(this, "extra")
+            aplicarAccesibilidadUI()
+
+        }
+
+        // --- CONTRASTE ---
+
+        cardNegroBlanco.setOnClickListener {
+
+            seleccionarCard(opcionesContraste, cardNegroBlanco)
+
+            AccessibilityManager.saveContrast(this, "dark")
+            aplicarAccesibilidadUI()
+
+        }
+
+        cardBlancoNegro.setOnClickListener {
+
+            seleccionarCard(opcionesContraste, cardBlancoNegro)
+
+            AccessibilityManager.saveContrast(this, "light")
+            aplicarAccesibilidadUI()
+
+        }
+
+        cardNegroAmarillo.setOnClickListener {
+
+            seleccionarCard(opcionesContraste, cardNegroAmarillo)
+
+            AccessibilityManager.saveContrast(this, "yellow")
+            aplicarAccesibilidadUI()
+
+        }
+
+        // --- RESTAURAR CONFIGURACIÓN GUARDADA ---
+
+        when (AccessibilityManager.getTextSize(this)) {
+
+            "normal" -> seleccionarCard(opcionesLetra, cardLetraNormal)
+            "grande" -> seleccionarCard(opcionesLetra, cardLetraGrande)
+            "extra" -> seleccionarCard(opcionesLetra, cardLetraGigante)
+        }
+
+        when (AccessibilityManager.getContrast(this)) {
+
+            "dark" -> seleccionarCard(opcionesContraste, cardNegroBlanco)
+            "light" -> seleccionarCard(opcionesContraste, cardBlancoNegro)
+            "yellow" -> seleccionarCard(opcionesContraste, cardNegroAmarillo)
+        }
+
+        aplicarAccesibilidadUI()
     }
+
+    // --- BOTÓN FLECHA ACCESIBLE ---
+
+    private fun aplicarEstiloImageButton(boton: ImageButton) {
+
+        val colorIcono = AccessibilityManager.getTextColor(this)
+
+        boton.setColorFilter(colorIcono)
+
+        val escala = when (AccessibilityManager.getTextSize(this)) {
+            "normal" -> 1.0f
+            "grande" -> 1.2f
+            "extra" -> 1.4f
+            else -> 1.0f
+        }
+
+        boton.scaleX = escala
+        boton.scaleY = escala
+    }
+
+    // Marca visualmente la tarjeta seleccionada
+    private fun seleccionarCard(lista: List<MaterialCardView>, seleccionada: MaterialCardView) {
+
+        lista.forEach {
+            it.strokeWidth = 0
+        }
+
+        seleccionada.strokeWidth = 6
+    }
+
+    private fun aplicarAccesibilidadUI() {
+
+        val root = findViewById<android.view.View>(android.R.id.content)
+
+        val tvTituloLetra = findViewById<android.widget.TextView>(R.id.tvTituloLetra)
+        val tvTituloContraste = findViewById<android.widget.TextView>(R.id.tvTituloContraste)
+
+        val colorTexto = AccessibilityManager.getTextColor(this)
+        val colorFondo = AccessibilityManager.getBackgroundColor(this)
+        val tamanoTexto = AccessibilityManager.getTextSizePx(this) * 0.8f
+
+        root.setBackgroundColor(colorFondo)
+
+        tvTituloLetra.setTextColor(colorTexto)
+        tvTituloContraste.setTextColor(colorTexto)
+
+        tvTituloLetra.textSize = tamanoTexto
+        tvTituloContraste.textSize = tamanoTexto
+
+        aplicarEstiloImageButton(btnBack)
+    }
+
+
 }
