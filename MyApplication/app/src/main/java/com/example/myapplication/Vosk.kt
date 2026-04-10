@@ -21,7 +21,7 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
         Thread {
             try {
                 // Solo cargamos el modelo de texto (Súper rápido y ligero)
-                val modelPath = copyModelFromAssets("vosk-model-es")
+                val modelPath = copyModelFromAssets("vosk-model-small-es-0.42")
                 val modeloTexto = Model(modelPath)
 
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
