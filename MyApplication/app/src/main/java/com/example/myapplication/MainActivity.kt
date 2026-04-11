@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
             onConfiguracionClick = { abrirConfiguracion() }
         )
 
-        engine = SmartEngine(this, "http://100.125.52.21:8000") { nombre ->
+        engine = SmartEngine(this, "https://cacharrin-1.taile1b3dc.ts.net") { nombre ->
             vistaApp.mostrarMotorActivo(nombre)
         }
 
