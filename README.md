@@ -16,6 +16,10 @@ tailscale up
 tailscale login/logout
 - Abrir entorno virtual:
 source entorno_tfg/bin/activate
+- Lanzar el servidor (lanzar servidor antes de levantar Caddy):
+python -m uvicorn optimizado_medio:app --host 127.0.0.1 --port 8000
+- Lanzar Caddy (para la conexión HTTPS):
+sudo caddy run
 -   Apagar el servidor:
 sudo poweroff
 Si estamos en el entorno hacer antes:
