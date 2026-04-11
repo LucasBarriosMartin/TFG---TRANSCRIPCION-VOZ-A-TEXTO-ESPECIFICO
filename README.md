@@ -57,3 +57,55 @@ TAREAS PENDIENTES (de mayor a menor importancia)
    - Que se puedan subir mensajes de voz y la aplicación lo transcriba.
  
   https://chatgpt.com/share/69a86761-fcb0-8004-87d8-ac4730414b8f
+
+
+
+
+
+  Capítulo 1: Introducción
+Diagrama de Gantt
+Decir qué ha hecho cada uno
+
+Capítulo 2: 
+Hacer la introducción en inglés (futuro)
+
+Capítulo 3:
+En un principio nada importante
+
+Capítulo 4:
+Diagramas de los casos de uso (como lo que tiene Carlos)
+
+Capítulo 5:
+Fotos esquema general de la app
+Foto flujo de la app con Vosk
+Foto flujo de la app con Whisper
+Foto de la línea Braille
+
+Capítulo 6:
+Explicar todo
+Poner fotos de la aplicación en el móvil
+Explicar los distintos listener y cómo se cambia de modelo
+Explicar menú de configuración
+Fotos del menú de configuración
+Pondría la sección 6.5 de la comunicación con el servidor como la última cosa de esa sección, ya que el siguiente capítulo es el del servidor
+
+Capítulo 7:
+Poner una foto del JSON donde guardamos la info para enseñar la estructura
+Explicar qué es Tavily, cómo funciona y por qué lo usamos
+Explicar Caddy y conexión HTTPS
+
+Capítulo 8:
+Poner fotos del gasto de batería del Vosk
+Poner fotos del gasto de batería del Whisper
+Poner foto de lo de RAM en móvil antiguo
+Poner fotos de cuánto ocupa la app con ambos tipos de Vosk
+Hacer comparativa de todo
+
+Capítulo 9:
+Meter una cantidad de cosa aquí horrible
+
+
+
+APÉNDICE: MANUAL DE USUARIO
+
+Yo haría una sección donde hacer un manual con las distintas cosas que se pueden hacer
