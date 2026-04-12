@@ -17,6 +17,17 @@ import java.nio.ByteOrder
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 
+/*
+ * Implementación de RecognitionEngine basada en Whisper.
+ *
+ * Funciona enviando audio al servidor en tiempo real mediante chunks PCM.
+ * El flujo es el siguiente:
+ * 1. Se graba audio continuamente con AudioRecord
+ * 2. Se divide en bloques (chunks)
+ * 3. Se filtran silencios
+ * 4. Se envían al servidor en paralelo
+ * 5. Se procesan las respuestas de transcripción
+ */
 class Whisper(
     private val context: Context,
     private val serverUrl: String
@@ -24,12 +35,16 @@ class Whisper(
 
     @Volatile private var listo = false
     @Volatile private var escuchando = false
+
     private var listener: EngineListener? = null
     private var audioRecord: AudioRecord? = null
+
     private var grabacionThread: Thread? = null
     private var envioThread: Thread? = null
+
     private val colaChunks = ArrayBlockingQueue<ByteArray>(10)
 
+    // Cliente HTTP con timeouts ajustados para streaming de audio
     private val client = OkHttpClient.Builder()
         .connectTimeout(2, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
@@ -37,65 +52,70 @@ class Whisper(
         .build()
 
     companion object {
-        private const val SAMPLE_RATE    = 16000
+        private const val SAMPLE_RATE = 16000
         private const val CHUNK_SEGUNDOS = 6
-        private const val CHUNK_SAMPLES  = SAMPLE_RATE * CHUNK_SEGUNDOS
-        private const val CHUNK_BYTES    = CHUNK_SAMPLES * 2
+        private const val CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_SEGUNDOS
+        private const val CHUNK_BYTES = CHUNK_SAMPLES * 2
         private const val UMBRAL_SILENCIO = 500.0
     }
 
-    // ------------------------------------------------------------------ //
-    //  RecognitionEngine
-    // ------------------------------------------------------------------ //
+    // ---------------- RecognitionEngine ---------------- //
 
     override fun inicializar(onReady: () -> Unit, onError: (Exception) -> Unit) {
+
         val request = Request.Builder()
             .url("$serverUrl/api/ping")
             .get()
             .build()
 
         client.newCall(request).enqueue(object : Callback {
+
             override fun onResponse(call: Call, response: Response) {
+
                 if (response.isSuccessful) {
                     listo = true
                     runOnMain { onReady() }
                 } else {
-                    runOnMain { onError(Exception("Servidor respondió ${response.code}")) }
+                    runOnMain {
+                        onError(Exception("Servidor respondió ${response.code}"))
+                    }
                 }
             }
+
             override fun onFailure(call: Call, e: IOException) {
-                runOnMain { onError(Exception("Sin conexión al servidor: ${e.message}")) }
+                runOnMain {
+                    onError(Exception("Sin conexión al servidor: ${e.message}"))
+                }
             }
         })
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun iniciarEscucha(listener: EngineListener) {
+
         if (escuchando) return
+
         this.listener = listener
         escuchando = true
         colaChunks.clear()
+
         iniciarGrabacionPorChunks()
     }
 
     override fun pararEscucha() {
-        escuchando = false // Detener la grabación
 
+        escuchando = false
+
+        // Detiene grabación y libera recursos de audio
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
-
-        // Lo comento porque ya no matamos al proceso,
-        // dejamos que termine de enviar lo que queda pendiente
-        // grabacionThread?.interrupt()
-        // envioThread?.interrupt()
-        // envioThread = null
-        // colaChunks.clear()
 
         grabacionThread = null
     }
 
     override fun liberar() {
+
         pararEscucha()
         listo = false
     }
@@ -103,12 +123,11 @@ class Whisper(
     override fun estaListo() = listo
     override fun nombreMotorActivo(): String = "Whisper"
 
-    // ------------------------------------------------------------------ //
-    //  Grabación continua + envío en paralelo
-    // ------------------------------------------------------------------ //
+    // ---------------- Grabación + envío en paralelo ---------------- //
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun iniciarGrabacionPorChunks() {
+
         val minBuffer = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -122,80 +141,108 @@ class Whisper(
             AudioFormat.ENCODING_PCM_16BIT,
             maxOf(minBuffer, CHUNK_BYTES)
         )
+
         audioRecord?.startRecording()
 
-        // Hilo 1: graba sin parar y mete chunks en la cola
+        // Hilo de grabación: genera chunks de audio
         grabacionThread = Thread {
+
             val pcmBuffer = ByteArray(CHUNK_BYTES)
 
             while (escuchando && !Thread.currentThread().isInterrupted) {
+
                 var totalLeido = 0
+
                 while (totalLeido < CHUNK_BYTES && escuchando) {
+
                     val leido = audioRecord?.read(
-                        pcmBuffer, totalLeido, CHUNK_BYTES - totalLeido
+                        pcmBuffer,
+                        totalLeido,
+                        CHUNK_BYTES - totalLeido
                     ) ?: break
+
                     if (leido > 0) totalLeido += leido
                 }
 
                 if (totalLeido > 0 && escuchando) {
+
                     val pcmCopia = pcmBuffer.copyOf(totalLeido)
+
                     if (!esSilencio(pcmCopia)) {
-                        // offer() descarta el chunk si la cola está llena (evita acumulación)
                         colaChunks.offer(pcmCopia)
                     }
                 }
             }
         }.also { it.start() }
 
-        // Hilo 2: consume la cola y envía al servidor
+        // Hilo de envío: consume la cola y manda al servidor
         envioThread = Thread {
+
             var chunkIndex = 0
 
-            // ¡LA MAGIA!: Seguimos dando vueltas si 'escuchando' es true,
-            // O si la cola todavía tiene audios pendientes de enviar.
-            while ((escuchando || colaChunks.isNotEmpty()) && !Thread.currentThread().isInterrupted) {
+            while ((escuchando || colaChunks.isNotEmpty())
+                && !Thread.currentThread().isInterrupted) {
+
                 try {
+
                     val pcm = colaChunks.poll(1, TimeUnit.SECONDS) ?: continue
+
                     val wavBytes = pcmAWav(pcm)
+
                     enviarChunk(wavBytes, "chunk_${chunkIndex++}.wav")
 
                 } catch (e: InterruptedException) {
-                    android.util.Log.d("Whisper", "Hilo de envío interrumpido pacíficamente.")
+
+                    android.util.Log.d(
+                        "Whisper",
+                        "Hilo de envío interrumpido"
+                    )
                     break
+
                 } catch (e: Exception) {
-                    android.util.Log.e("Whisper", "Hilo de envío detenido bruscamente: ${e.message}")
+
+                    android.util.Log.e(
+                        "Whisper",
+                        "Error en envío: ${e.message}"
+                    )
                 }
             }
-            android.util.Log.d("Whisper", "Cierre elegante completado. Cola vacía.")
         }.also { it.start() }
     }
 
-    // ------------------------------------------------------------------ //
-    //  Detección de silencio por RMS
-    // ------------------------------------------------------------------ //
+    // ---------------- Detección de silencio ---------------- //
 
     private fun esSilencio(pcm: ByteArray): Boolean {
+
         var suma = 0.0
+
         for (i in pcm.indices step 2) {
-            val muestra = ((pcm[i].toInt() and 0xFF) or ((pcm[i + 1].toInt() and 0xFF) shl 8)).toShort()
+
+            val muestra = (
+                    (pcm[i].toInt() and 0xFF) or
+                            ((pcm[i + 1].toInt() and 0xFF) shl 8)
+                    ).toShort()
+
             suma += muestra * muestra
         }
+
         val rms = Math.sqrt(suma / (pcm.size / 2))
+
         android.util.Log.d("Whisper_RMS", "RMS = $rms")
+
         return rms < UMBRAL_SILENCIO
     }
 
-    // ------------------------------------------------------------------ //
-    //  Envío del chunk al servidor
-    // ------------------------------------------------------------------ //
+    // ---------------- Envío al servidor ---------------- //
 
     private fun enviarChunk(wavBytes: ByteArray, nombreFichero: String) {
+
         val requestBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart(
-                name     = "archivo",
+                name = "archivo",
                 filename = nombreFichero,
-                body     = wavBytes.toRequestBody("audio/wav".toMediaType())
+                body = wavBytes.toRequestBody("audio/wav".toMediaType())
             )
             .build()
 
@@ -205,48 +252,73 @@ class Whisper(
             .build()
 
         try {
+
             val response = client.newCall(request).execute()
             val bodyString = response.body?.string()
 
             if (response.isSuccessful && bodyString != null) {
-                try {
-                    // Intentamos leer el JSON de forma segura
-                    val json    = JSONObject(bodyString)
-                    val speaker = json.optString("speaker")
-                    val texto   = json.optString("text")
 
-                    if (texto.isNotEmpty()) {
-                        val textoFormateado = if (speaker.isNotEmpty()) "[$speaker]: $texto" else texto
-                        runOnMain { listener?.onResultadoFinal(textoFormateado) }
+                val json = JSONObject(bodyString)
+                val speaker = json.optString("speaker")
+                val texto = json.optString("text")
+
+                if (texto.isNotEmpty()) {
+
+                    val resultado =
+                        if (speaker.isNotEmpty())
+                            "[$speaker]: $texto"
+                        else
+                            texto
+
+                    runOnMain {
+                        listener?.onResultadoFinal(resultado)
                     }
-                } catch (e: Exception) {
-                    // Si el JSON viene roto, no cerramos la app, sacamos el error
-                    runOnMain { listener?.onError(Exception("Servidor devolvió datos raros: $bodyString")) }
                 }
+
             } else {
-                // Si el servidor da un error 500, ahora nos avisará por pantalla en lugar de callarse
-                runOnMain { listener?.onError(Exception("Fallo en Cacharrín: Código ${response.code}")) }
+
+                runOnMain {
+                    listener?.onError(
+                        Exception("Error servidor: ${response.code}")
+                    )
+                }
             }
-        } catch (e: Exception) { // CAPTURAMOS CUALQUIER ERROR, NO SOLO IOException
-            runOnMain { listener?.onError(Exception("Error de red con Whisper: ${e.message}")) }
+
+        } catch (e: Exception) {
+
+            runOnMain {
+                listener?.onError(
+                    Exception("Error de red con Whisper: ${e.message}")
+                )
+            }
         }
     }
 
-    // ------------------------------------------------------------------ //
-    //  PCM → WAV
-    // ------------------------------------------------------------------ //
+    // ---------------- PCM → WAV ---------------- //
 
     private fun pcmAWav(pcm: ByteArray): ByteArray {
+
         val totalDataLen = pcm.size + 36
-        val byteRate     = SAMPLE_RATE * 2
+        val byteRate = SAMPLE_RATE * 2
 
         val out = ByteArrayOutputStream()
 
         fun writeInt32LE(v: Int) {
-            out.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array())
+            out.write(
+                ByteBuffer.allocate(4)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(v)
+                    .array()
+            )
         }
+
         fun writeInt16LE(v: Int) {
-            out.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v.toShort()).array())
+            out.write(
+                ByteBuffer.allocate(2)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putShort(v.toShort())
+                    .array()
+            )
         }
 
         out.write("RIFF".toByteArray())
@@ -254,12 +326,12 @@ class Whisper(
         out.write("WAVE".toByteArray())
         out.write("fmt ".toByteArray())
         writeInt32LE(16)
-        writeInt16LE(1)           // PCM
-        writeInt16LE(1)           // Mono
+        writeInt16LE(1)
+        writeInt16LE(1)
         writeInt32LE(SAMPLE_RATE)
         writeInt32LE(byteRate)
-        writeInt16LE(2)           // Block align
-        writeInt16LE(16)          // Bits por muestra
+        writeInt16LE(2)
+        writeInt16LE(16)
         out.write("data".toByteArray())
         writeInt32LE(pcm.size)
         out.write(pcm)

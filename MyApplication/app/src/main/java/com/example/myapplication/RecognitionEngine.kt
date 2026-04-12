@@ -1,42 +1,33 @@
 package com.example.myapplication
 
-/**
- * Interfaz que abstrae cualquier motor de reconocimiento de voz.
- * Tanto Vosk como Whisper deben implementarla.
+/*
+ * Interfaz común para cualquier motor de reconocimiento de voz.
  *
- * Es el "contrato de entrada": define lo que MainActivity puede pedirle
- * a cualquier motor, sin saber cuál es.
+ * La idea es que la aplicación no dependa de una implementación concreta.
+ * Motores como Vosk o Whisper deben implementar esta interfaz para que
+ * MainActivity pueda usarlos sin saber cuál está funcionando realmente.
  */
 interface RecognitionEngine {
 
-    /**
-     * Inicializa el motor (cargar modelo, conectar al servidor, etc.)
-     * @param onReady Se llama cuando el motor está listo para escuchar.
-     * @param onError Se llama si hay un error durante la inicialización.
-     */
+    // Inicializa el motor (cargar modelo local, abrir conexión, etc.)
+    // onReady se ejecuta cuando el motor está listo para empezar a escuchar
+    // onError se ejecuta si ocurre algún problema durante la inicialización
     fun inicializar(onReady: () -> Unit, onError: (Exception) -> Unit)
 
-    /**
-     * Empieza a escuchar y transcribir audio.
-     * @param listener Recibe los resultados parciales y finales.
-     */
+    // Empieza a escuchar audio del micrófono y enviar resultados al listener
     fun iniciarEscucha(listener: EngineListener)
 
-    /**
-     * Para la escucha activa.
-     */
+    // Detiene la escucha activa
     fun pararEscucha()
 
-    /**
-     * Libera todos los recursos (modelo, conexión, hilos, etc.)
-     * Llamar en onDestroy().
-     */
+    // Libera recursos usados por el motor (modelo, red, hilos...)
+    // Se suele llamar desde onDestroy() de la actividad
     fun liberar()
 
-    /**
-     * @return true si el motor ya ha sido inicializado y está listo.
-     */
+    // Indica si el motor ya está preparado para usarse
     fun estaListo(): Boolean
 
+    // Devuelve el nombre del motor que está funcionando
+    // (útil para mostrarlo en la interfaz)
     fun nombreMotorActivo(): String
 }

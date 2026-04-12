@@ -15,27 +15,30 @@ import android.view.View
 
 class MainActivity : AppCompatActivity(), EngineListener {
 
-    // 1. NUESTRA NUEVA CLASE DE VISTAS
+    // Vista que encapsula la UI principal de la actividad
     private lateinit var vistaApp: AppView
 
-    // 2. Variables de estado y datos
+    // Lista donde se van acumulando las frases transcritas
     private val listaFrases = ArrayList<String>()
+
+    // Adaptador del RecyclerView que muestra la transcripción
     private lateinit var adaptador: TranscriptionAdapter
 
+    // Botones principales de la interfaz
     private lateinit var btnParar: Button
     private lateinit var btnLimpiar: Button
     private lateinit var btnGuardar: Button
-
     private lateinit var btnConfiguracion: ImageButton
 
-    // 3. EL MOTOR INTELIGENTE — sustituye a las variables de Vosk que teníamos antes.
-    //    SmartEngine decide internamente si usar Vosk o Whisper según la conexión.
+    // Motor de reconocimiento (puede usar Vosk o Whisper internamente)
     private lateinit var engine: RecognitionEngine
 
+    // Estados del reconocimiento
     private var isListening = true
     private var wasListening = false
     private var isPartialTyping = false
 
+    // Lanzador para crear un documento y guardar la transcripción
     private val createFileLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
@@ -47,12 +50,14 @@ class MainActivity : AppCompatActivity(), EngineListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Referencias a botones
         btnParar = findViewById(R.id.btnPararReanudar)
         btnLimpiar = findViewById(R.id.btnLimpiar)
         btnGuardar = findViewById(R.id.btnGuardar)
 
         adaptador = TranscriptionAdapter(listaFrases)
 
+        // Inicialización de la vista que gestiona la UI
         vistaApp = AppView(
             actividad = this,
             adaptador = adaptador,
@@ -62,10 +67,12 @@ class MainActivity : AppCompatActivity(), EngineListener {
             onConfiguracionClick = { abrirConfiguracion() }
         )
 
+        // Inicialización del motor de reconocimiento
         engine = SmartEngine(this, "https://cacharrin-1.taile1b3dc.ts.net") { nombre ->
             vistaApp.mostrarMotorActivo(nombre)
         }
 
+        // Restaurar estado si la actividad se recrea
         if (savedInstanceState != null) {
             savedInstanceState.getStringArrayList("LISTAS_GUARDADAS")?.let {
                 listaFrases.addAll(it)
@@ -76,26 +83,30 @@ class MainActivity : AppCompatActivity(), EngineListener {
         }
 
         vistaApp.estadoCargando()
-        if (checkAudioPermission()) initEngine()
 
-        // --- Aplicar accesibilidad ---
-        val root = findViewById<android.view.View>(android.R.id.content)
+        if (checkAudioPermission()) {
+            initEngine()
+        }
+
+        // Aplicar configuración de accesibilidad
+        val root = findViewById<View>(android.R.id.content)
         root.setBackgroundColor(
             AccessibilityManager.getBackgroundColor(this)
         )
         AccessibilityManager.applyAccessibility(this, root)
 
-        // Aplicar a adaptador
+        // Aplicar configuración visual al adaptador
         adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
         adaptador.setColorTexto(AccessibilityManager.getTextColor(this))
         adaptador.setColorFondo(AccessibilityManager.getBackgroundColor(this))
+
         btnConfiguracion = findViewById(R.id.btnConfiguracion)
+
         aplicarEstiloImageButton(btnConfiguracion)
         aplicarColoresBotones()
     }
 
-    // --- ACCIONES DE LOS BOTONES ---
-
+    // Alterna entre escuchar o detener la escucha
     private fun toggleListening() {
         if (isListening)
             stopRecognition()
@@ -103,12 +114,14 @@ class MainActivity : AppCompatActivity(), EngineListener {
             startRecognition()
     }
 
+    // Limpia la lista de frases transcritas
     private fun limpiarLista() {
         listaFrases.clear()
         adaptador.notifyDataSetChanged()
         isPartialTyping = false
     }
 
+    // Abre el selector para guardar la transcripción como archivo
     private fun abrirGuardadoDocumento() {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -118,13 +131,10 @@ class MainActivity : AppCompatActivity(), EngineListener {
         createFileLauncher.launch(intent)
     }
 
-    // --- LÓGICA DEL MOTOR ---
-
+    // Inicializa el motor de reconocimiento
     private fun initEngine() {
         vistaApp.estadoCargando()
 
-        // SmartEngine lanza Vosk y Whisper en paralelo internamente.
-        // onReady() se llama en cuanto el primero esté listo.
         engine.inicializar(
             onReady = {
                 if (isFinishing || isDestroyed) return@inicializar
@@ -147,25 +157,23 @@ class MainActivity : AppCompatActivity(), EngineListener {
         )
     }
 
-    // --- ESCUCHAR Y PARAR ---
-
+    // Comienza la escucha del micrófono
     private fun startRecognition() {
         if (!engine.estaListo()) return
 
-        // "this" implementa EngineListener, así que recibe los callbacks de ambos motores
         engine.iniciarEscucha(this)
         isListening = true
-        vistaApp.estadoListo(true) // Ponemos botón en PARAR
+        vistaApp.estadoListo(true)
     }
 
+    // Detiene la escucha del micrófono
     private fun stopRecognition() {
         engine.pararEscucha()
         isListening = false
-        vistaApp.estadoListo(false) // Ponemos botón en REANUDAR
+        vistaApp.estadoListo(false)
     }
 
-    // --- EngineListener — igual para Vosk y Whisper ---
-
+    // Resultado parcial del motor de reconocimiento
     override fun onResultadoParcial(texto: String) {
         val textoBonito = texto.replaceFirstChar { it.uppercase() }
 
@@ -177,9 +185,11 @@ class MainActivity : AppCompatActivity(), EngineListener {
             listaFrases[listaFrases.size - 1] = textoBonito
             adaptador.notifyItemChanged(listaFrases.size - 1)
         }
+
         vistaApp.hacerScrollAbajo(listaFrases.size)
     }
 
+    // Resultado final confirmado por el motor
     override fun onResultadoFinal(texto: String) {
         val textoFinal = texto.replaceFirstChar { it.uppercase() } + ". "
 
@@ -191,6 +201,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
             listaFrases.add(textoFinal)
             adaptador.notifyItemInserted(listaFrases.size - 1)
         }
+
         vistaApp.hacerScrollAbajo(listaFrases.size)
     }
 
@@ -198,8 +209,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
         Toast.makeText(this, "Error: ${excepcion.message}", Toast.LENGTH_SHORT).show()
     }
 
-    // --- AUXILIARES, PERMISOS Y CICLO DE VIDA ---
-
+    // Guarda el estado de la actividad
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putStringArrayList("LISTAS_GUARDADAS", listaFrases)
@@ -207,6 +217,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
         outState.putBoolean("ESTABA_ESCUCHANDO", wasListening)
     }
 
+    // Comprueba si el permiso de micrófono está concedido
     private fun checkAudioPermission(): Boolean {
         if (ContextCompat.checkSelfPermission(
                 this,
@@ -219,12 +230,14 @@ class MainActivity : AppCompatActivity(), EngineListener {
         return true
     }
 
+    // Resultado de la petición de permisos
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
         if (requestCode == 1) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 isListening = true
@@ -238,17 +251,23 @@ class MainActivity : AppCompatActivity(), EngineListener {
 
     override fun onPause() {
         super.onPause()
+
         wasListening = isListening
-        if (isListening) stopRecognition()
+
+        if (isListening) {
+            stopRecognition()
+        }
     }
 
     override fun onResume() {
         super.onResume()
 
-        val root = findViewById<android.view.View>(android.R.id.content)
+        val root = findViewById<View>(android.R.id.content)
+
         root.setBackgroundColor(
             AccessibilityManager.getBackgroundColor(this)
         )
+
         AccessibilityManager.applyAccessibility(this, root)
 
         adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
@@ -260,48 +279,57 @@ class MainActivity : AppCompatActivity(), EngineListener {
 
         adaptador.notifyDataSetChanged()
 
-        if (engine.estaListo() && wasListening) startRecognition()
+        if (engine.estaListo() && wasListening) {
+            startRecognition()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+
         engine.liberar()
         vistaApp.liberarPantallaEncendida()
     }
 
+    // Guarda todas las frases en el archivo seleccionado
     private fun guardarTexto(uri: android.net.Uri) {
         try {
             contentResolver.openOutputStream(uri)?.use { outputStream ->
                 val textoAGuardar = listaFrases.joinToString(separator = "\n")
                 outputStream.write(textoAGuardar.toByteArray())
             }
+
             Toast.makeText(this, "Guardado correctamente", Toast.LENGTH_SHORT).show()
+
         } catch (e: Exception) {
             Toast.makeText(this, "Error al guardar: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
+    // Abre la pantalla de configuración
     private fun abrirConfiguracion() {
         val intent = Intent(this, SettingsActivity::class.java)
         startActivity(intent)
     }
 
-
+    // Ajusta color y escala del icono según la configuración de accesibilidad
     private fun aplicarEstiloImageButton(boton: ImageButton) {
-        val colorIcono = AccessibilityManager.getTextColor(this)
-        boton.setColorFilter(colorIcono) // Aplica el color del icono según contraste
 
-        // Ajusta tamaño del icono si quieres escalar
+        val colorIcono = AccessibilityManager.getTextColor(this)
+        boton.setColorFilter(colorIcono)
+
         val scale = when (AccessibilityManager.getTextSize(this)) {
             "normal" -> 1.0f
             "grande" -> 1.2f
             "extra" -> 1.4f
             else -> 1.0f
         }
+
         boton.scaleX = scale
         boton.scaleY = scale
     }
 
+    // Aplica colores accesibles a un botón estándar
     private fun aplicarEstiloBoton(boton: Button) {
 
         val colorTexto = AccessibilityManager.getButtonTextColor(this)
@@ -311,6 +339,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
         boton.setTextColor(colorTexto)
     }
 
+    // Aplica los colores de accesibilidad a todos los botones
     private fun aplicarColoresBotones() {
 
         val root = findViewById<View>(android.R.id.content)
@@ -330,6 +359,4 @@ class MainActivity : AppCompatActivity(), EngineListener {
 
         aplicarEstiloImageButton(btnConfiguracion)
     }
-
-
 }

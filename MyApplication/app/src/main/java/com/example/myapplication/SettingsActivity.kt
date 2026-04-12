@@ -15,15 +15,14 @@ class SettingsActivity : AppCompatActivity() {
 
         btnBack = findViewById(R.id.btnBack)
 
-        // aplicar estilo accesible al botón
+        // Aplicar estilo accesible al botón de volver
         aplicarEstiloImageButton(btnBack)
 
         btnBack.setOnClickListener {
             finish()
         }
 
-        // --- REFERENCIAS A LAS TARJETAS ---
-
+        // Referencias a las tarjetas de opciones
         val cardLetraNormal = findViewById<MaterialCardView>(R.id.cardLetraNormal)
         val cardLetraGrande = findViewById<MaterialCardView>(R.id.cardLetraGrande)
         val cardLetraGigante = findViewById<MaterialCardView>(R.id.cardLetraGigante)
@@ -43,7 +42,6 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveTextSize(this, "normal")
             aplicarAccesibilidadUI()
-
         }
 
         cardLetraGrande.setOnClickListener {
@@ -52,7 +50,6 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveTextSize(this, "grande")
             aplicarAccesibilidadUI()
-
         }
 
         cardLetraGigante.setOnClickListener {
@@ -61,7 +58,6 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveTextSize(this, "extra")
             aplicarAccesibilidadUI()
-
         }
 
         // --- CONTRASTE ---
@@ -72,7 +68,6 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveContrast(this, "dark")
             aplicarAccesibilidadUI()
-
         }
 
         cardBlancoNegro.setOnClickListener {
@@ -81,7 +76,6 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveContrast(this, "light")
             aplicarAccesibilidadUI()
-
         }
 
         cardNegroAmarillo.setOnClickListener {
@@ -90,20 +84,17 @@ class SettingsActivity : AppCompatActivity() {
 
             AccessibilityManager.saveContrast(this, "yellow")
             aplicarAccesibilidadUI()
-
         }
 
-        // --- RESTAURAR CONFIGURACIÓN GUARDADA ---
+        // Restaurar la configuración guardada previamente
 
         when (AccessibilityManager.getTextSize(this)) {
-
             "normal" -> seleccionarCard(opcionesLetra, cardLetraNormal)
             "grande" -> seleccionarCard(opcionesLetra, cardLetraGrande)
             "extra" -> seleccionarCard(opcionesLetra, cardLetraGigante)
         }
 
         when (AccessibilityManager.getContrast(this)) {
-
             "dark" -> seleccionarCard(opcionesContraste, cardNegroBlanco)
             "light" -> seleccionarCard(opcionesContraste, cardBlancoNegro)
             "yellow" -> seleccionarCard(opcionesContraste, cardNegroAmarillo)
@@ -112,8 +103,7 @@ class SettingsActivity : AppCompatActivity() {
         aplicarAccesibilidadUI()
     }
 
-    // --- BOTÓN FLECHA ACCESIBLE ---
-
+    // Ajusta color y escala del icono según la configuración de accesibilidad
     private fun aplicarEstiloImageButton(boton: ImageButton) {
 
         val colorIcono = AccessibilityManager.getTextColor(this)
@@ -131,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
         boton.scaleY = escala
     }
 
-    // Marca visualmente la tarjeta seleccionada
+    // Marca visualmente qué tarjeta está seleccionada
     private fun seleccionarCard(lista: List<MaterialCardView>, seleccionada: MaterialCardView) {
 
         lista.forEach {
@@ -141,6 +131,7 @@ class SettingsActivity : AppCompatActivity() {
         seleccionada.strokeWidth = 6
     }
 
+    // Aplica colores y tamaño de texto según la configuración de accesibilidad
     private fun aplicarAccesibilidadUI() {
 
         val root = findViewById<android.view.View>(android.R.id.content)
@@ -162,6 +153,4 @@ class SettingsActivity : AppCompatActivity() {
 
         aplicarEstiloImageButton(btnBack)
     }
-
-
 }
