@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.util.Locale
 import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Button
 import android.widget.ImageButton
@@ -296,7 +295,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
     private fun guardarTexto(uri: android.net.Uri) {
         try {
             contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val textoAGuardar = textViewTranscript.text.toString()
+                val textoAGuardar = listaFrases.joinToString(separator = "\n")
                 outputStream.write(textoAGuardar.toByteArray())
             }
 
