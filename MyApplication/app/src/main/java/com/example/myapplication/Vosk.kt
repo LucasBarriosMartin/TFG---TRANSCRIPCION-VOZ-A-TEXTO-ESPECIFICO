@@ -32,7 +32,7 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
             try {
 
                 // Copiar el modelo desde assets si aún no está en almacenamiento interno
-                val modelPath = copyModelFromAssets("vosk-model-small-es-0.42")
+                val modelPath = copyModelFromAssets("vosk-model-small")
 
                 val modeloTexto = Model(modelPath)
 
@@ -144,7 +144,15 @@ class Vosk(private val context: Context) : RecognitionEngine, RecognitionListene
 
         val outDir = File(context.filesDir, modelName)
 
-        if (outDir.exists()) return outDir.absolutePath
+        val archivoChivato = File(outDir, "am/final.mdl")
+
+        if (outDir.exists() && archivoChivato.exists()) {
+            return outDir.absolutePath
+        }
+
+        if (outDir.exists()) {
+            outDir.deleteRecursively()
+        }
 
         outDir.mkdirs()
 
