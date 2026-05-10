@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Button
 import android.widget.ImageButton
 import android.view.View
+import android.widget.TextView
 
 class MainActivity : AppCompatActivity(), EngineListener {
 
@@ -93,7 +94,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
         root.setBackgroundColor(
             AccessibilityManager.getBackgroundColor(this)
         )
-        AccessibilityManager.applyAccessibility(this, root)
+        // AccessibilityManager.applyAccessibility(this, root)
 
         // Aplicar configuración visual al adaptador
         adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
@@ -268,7 +269,7 @@ class MainActivity : AppCompatActivity(), EngineListener {
             AccessibilityManager.getBackgroundColor(this)
         )
 
-        AccessibilityManager.applyAccessibility(this, root)
+        // AccessibilityManager.applyAccessibility(this, root)
 
         adaptador.setTamanoLetra(AccessibilityManager.getTextSizePx(this))
         adaptador.setColorTexto(AccessibilityManager.getTextColor(this))
@@ -358,5 +359,8 @@ class MainActivity : AppCompatActivity(), EngineListener {
         aplicarEstiloBoton(btnGuardar)
 
         aplicarEstiloImageButton(btnConfiguracion)
+
+        val tvMotorActivo = findViewById<TextView>(R.id.tvMotorActivo)
+        tvMotorActivo.setTextColor(colorTexto)
     }
 }

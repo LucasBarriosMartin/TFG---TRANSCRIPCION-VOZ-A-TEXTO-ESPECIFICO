@@ -2,9 +2,6 @@ package com.example.myapplication
 
 import android.content.Context
 import android.graphics.Color
-import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 
 object AccessibilityManager {
 
@@ -37,74 +34,6 @@ object AccessibilityManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(KEY_CONTRAST, "light") ?: "light"
     }
-
-
-    // Aplicación de accesibilidad a una vista raíz
-
-    fun applyAccessibility(context: Context, root: View) {
-
-        val textSize = getTextSize(context)
-        val contrast = getContrast(context)
-
-        applyTextSize(root, textSize)
-        applyContrast(root, contrast)
-    }
-
-
-    // Aplicación de tamaño de texto
-
-    // Recorre la jerarquía de vistas y ajusta el tamaño de los TextView
-    private fun applyTextSize(view: View, size: String) {
-
-        if (view is TextView) {
-            when (size) {
-                "normal" -> view.textSize = 16f
-                "grande" -> view.textSize = 20f
-                "extra" -> view.textSize = 24f
-            }
-        }
-
-        // Si la vista es un contenedor, aplicamos el cambio a sus hijos
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyTextSize(view.getChildAt(i), size)
-            }
-        }
-    }
-
-
-    // Aplicación de contraste
-
-    // Cambia colores de texto y fondo según el modo de contraste seleccionado
-    private fun applyContrast(view: View, contrast: String) {
-
-        if (view is TextView) {
-            when (contrast) {
-                "light" -> {
-                    view.setTextColor(Color.BLACK)
-                    view.setBackgroundColor(Color.WHITE)
-                }
-
-                "dark" -> {
-                    view.setTextColor(Color.WHITE)
-                    view.setBackgroundColor(Color.BLACK)
-                }
-
-                "yellow" -> {
-                    view.setTextColor(Color.YELLOW)
-                    view.setBackgroundColor(Color.BLACK)
-                }
-            }
-        }
-
-        // Recorrer las vistas hijas si es un contenedor
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyContrast(view.getChildAt(i), contrast)
-            }
-        }
-    }
-
 
     // Métodos auxiliares para obtener colores
 
