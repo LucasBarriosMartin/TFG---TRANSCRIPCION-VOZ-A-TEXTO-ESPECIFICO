@@ -38,7 +38,7 @@ CORRECCIONES
 - Cuando pulsamos el botón de parar deja de procesarse todo el audio anterior. ✅ Dia 06/04/2026
 - Corregir bug scroll automático (correción que no ha funcionado)
 - Que si habla la misma persona no aparezca de nuevo su nombre.
-- Intentar corregir bug visual al cambiar la configuración. 
+- Intentar corregir bug visual al cambiar la configuración. ✅ Dia 10/05/2026
 - Convertir la comunicación en HTTPS ✅ Dia 10/04/2026
 
 TAREAS PENDIENTES (de mayor a menor importancia)
