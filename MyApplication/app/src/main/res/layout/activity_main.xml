@@ -55,8 +55,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="PARAR"
-            android:maxLines="1" />
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:padding="0dp"
+            android:text="PARAR" />
 
         <Button
             android:id="@+id/btnLimpiar"
@@ -64,16 +66,20 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginHorizontal="4dp"
-            android:text="LIMPIAR"
-            android:maxLines="1" />
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:padding="0dp"
+            android:text="LIMPIAR" />
 
         <Button
             android:id="@+id/btnGuardar"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="GUARDAR"
-            android:maxLines="1" />
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:padding="0dp"
+            android:text="GUARDAR" />
 
     </LinearLayout>
 

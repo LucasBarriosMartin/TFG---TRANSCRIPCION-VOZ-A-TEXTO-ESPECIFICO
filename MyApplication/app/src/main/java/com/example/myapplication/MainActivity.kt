@@ -336,8 +336,17 @@ class MainActivity : AppCompatActivity(), EngineListener {
         val colorTexto = AccessibilityManager.getButtonTextColor(this)
         val colorFondo = AccessibilityManager.getButtonBackgroundColor(this)
 
+        val etiquetaTamano = AccessibilityManager.getTextSize(this)
+
         boton.setBackgroundColor(colorFondo)
         boton.setTextColor(colorTexto)
+
+        when (etiquetaTamano) {
+            "normal" -> boton.textSize = 16f
+            "grande" -> boton.textSize = 20f
+            "extra" -> boton.textSize = 24f
+        }
+
     }
 
     // Aplica los colores de accesibilidad a todos los botones
